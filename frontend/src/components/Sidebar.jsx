@@ -2,20 +2,17 @@
 import {
   LayoutDashboard,
   Store,
-  sensor,
+  Camera,
   ChartNoAxesCombined,
   FileText,
-  Settings,
-  PanelLeftClose,
 } from 'lucide-react'
 
 const navigation = [
   { label: 'Overview', icon: LayoutDashboard },
   { label: 'Stores', icon: Store },
-  { label: 'sensors', icon: sensor },
+  { label: 'Sensors', icon: Camera },
   { label: 'Analytics', icon: ChartNoAxesCombined },
   { label: 'Reports', icon: FileText },
-  { label: 'Settings', icon: Settings },
 ]
 
 export default function Sidebar({ activePage, setActivePage }) {

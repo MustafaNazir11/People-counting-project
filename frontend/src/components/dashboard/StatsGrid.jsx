@@ -1,4 +1,4 @@
-import { Activity, sensor, TrendingUp, Users } from 'lucide-react'
+import { Activity, Camera, TrendingUp, Users } from 'lucide-react'
 import StatCard from '../StatCard'
 
 const stats = [
@@ -12,7 +12,7 @@ const stats = [
     label: 'Active sensors',
     value: '8 / 10',
     change: '2 offline',
-    icon: sensor,
+    icon: Camera,
   },
   {
     label: 'Store activity',

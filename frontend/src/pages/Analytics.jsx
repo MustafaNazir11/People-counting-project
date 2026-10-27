@@ -5,7 +5,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CalendarDays,
-  sensor,
+  Camera,
   RefreshCw,
   Users,
 } from 'lucide-react'
@@ -23,9 +23,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { apiFetch } from '../api'
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
-const READINGS_ENDPOINT = `${API_BASE_URL}/sensors/vs125/readings`
 const COLORS = ['#0f766e', '#2563eb', '#7c3aed', '#ea580c']
 
 function inputDate(date) {
@@ -144,19 +143,11 @@ export default function Analytics({ token }) {
       setLoadError('')
 
       try {
-        const response = await fetch(`${READINGS_ENDPOINT}?${params}`, {
-          headers: { Authorization: `Bearer ${token}` },
-          signal: controller.signal,
-        })
-        const data = await response.json().catch(() => null)
-
-        if (!response.ok) {
-          throw new Error(
-            response.status === 401
-              ? 'Your session has expired. Please log in again.'
-              : data?.detail || 'Could not load sensor readings.',
-          )
-        }
+        const data = await apiFetch(
+          `/sensors/vs125/readings?${params}`,
+          token,
+          { signal: controller.signal },
+        )
         const rows = Array.isArray(data) ? data : data?.readings
         if (!Array.isArray(rows)) {
           throw new Error('The server returned an unexpected readings response.')
@@ -363,7 +354,7 @@ export default function Analytics({ token }) {
           label="sensors reporting"
           value={loading ? '—' : sensorsTracked}
           detail={`${storeStats.length} stores with readings`}
-          icon={sensor}
+          icon={Camera}
         />
       </div>
 

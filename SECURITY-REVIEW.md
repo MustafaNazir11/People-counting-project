@@ -12,6 +12,13 @@ vulnerabilities.
 - Prior coverage ledger: none found.
 - `backend/.env` contents were not inspected.
 
+This report is a snapshot of the reviewed revision above. The current working
+tree now contains remediation changes for per-sensor ingest identity and
+database-enforced event-key deduplication. Those changes and their tests have
+not been runtime-validated in an OS-enforced sandbox; the historical finding
+below describes the earlier revision, not a confirmed issue in the current
+working tree.
+
 ## Needs validation
 
 ### Sensor-ingest credentials may permit writing readings for any sensor

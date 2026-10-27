@@ -1,18 +1,24 @@
 
 from datetime import date, datetime, time, timedelta, timezone
-import os
-import secrets
+import logging
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from pydantic import BaseModel, Field
 from sqlalchemy import select, desc
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import load_only
 
 from app.database import AsyncSessionLocal
 from app.models import Sensor, Store, UserStoreAccess, SensorLineReading
 from app.auth.dependencies import get_current_user
+from app.services.vs125 import (
+    SensorPayload,
+    ingest_readings,
+    resolve_ingest_sensor_id,
+)
 
 router = APIRouter(prefix="/sensors/vs125", tags=["VS125"])
+logger = logging.getLogger(__name__)
 
 
 async def get_db():
@@ -20,68 +26,51 @@ async def get_db():
         yield session
 
 
-class LineReading(BaseModel):
-    line: int
-    line_name: str
-    line_uuid: str
-    in_count: int = Field(alias="in", ge=0)
-    out_count: int = Field(alias="out", ge=0)
-    male_in: int = Field(ge=0)
-    male_out: int = Field(ge=0)
-    female_in: int = Field(ge=0)
-    female_out: int = Field(ge=0)
-    group_in: int = Field(ge=0)
-    group_out: int = Field(ge=0)
-
-
-class SensorPayload(BaseModel):
-    line_periodic_total_data: list[LineReading] = Field(max_length=4)
-
-
 @router.post("/ingest")
 async def ingest_vs125(
     payload: SensorPayload,
-    sensor_id: int,
-    x_sensor_token: str = Header(),
+    x_sensor_token: str | None = Header(default=None),
+    idempotency_key: str = Header(alias="Idempotency-Key"),
     db: AsyncSession = Depends(get_db),
 ):
-    expected_token = os.getenv("VS125_INGEST_TOKEN")
-    if not expected_token or not secrets.compare_digest(
-        x_sensor_token, expected_token
-    ):
+    try:
+        sensor_id = await resolve_ingest_sensor_id(db, x_sensor_token)
+    except SQLAlchemyError as exc:
+        logger.error(
+            "Sensor credential lookup failed (%s)",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Sensor credential storage is unavailable.",
+        ) from exc
+    if sensor_id is None:
         raise HTTPException(status_code=401, detail="Invalid sensor token")
 
-    sensor = await db.get(sensor, sensor_id)
-    if sensor is None:
-        raise HTTPException(status_code=404, detail="sensor not found")
-
-    now = datetime.now(timezone.utc)
-    records = []
-
-    for line in payload.line_periodic_total_data:
-        records.append(
-            SensorLineReading(
-                sensor_id=sensor_id,
-                line_id=line.line,
-                line_name=line.line_name,
-                line_uuid=line.line_uuid,
-                individuals_in=line.in_count,
-                individuals_out=line.out_count,
-                male_in=line.male_in,
-                male_out=line.male_out,
-                female_in=line.female_in,
-                female_out=line.female_out,
-                group_in=line.group_in,
-                group_out=line.group_out,
-                recorded_at=now,
-                received_at=now,
-            )
+    try:
+        records_saved = await ingest_readings(
+            db,
+            sensor_id,
+            idempotency_key,
+            payload,
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except SQLAlchemyError as exc:
+        logger.error(
+            "VS125 reading persistence failed (%s)",
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Sensor reading storage is unavailable.",
+        ) from exc
 
-    db.add_all(records)
-    await db.commit()
-
-    return {"status": "saved", "records_saved": len(records)}
+    return {
+        "status": "saved",
+        "records_saved": records_saved,
+        "duplicate": records_saved == 0 and bool(payload.line_periodic_total_data),
+    }
 
 @router.get("/readings")
 async def get_vs125_readings(
@@ -100,6 +89,24 @@ async def get_vs125_readings(
 
     query = (
         select(SensorLineReading, Store.id, Store.name)
+        .options(
+            load_only(
+                SensorLineReading.id,
+                SensorLineReading.sensor_id,
+                SensorLineReading.line_id,
+                SensorLineReading.line_name,
+                SensorLineReading.individuals_in,
+                SensorLineReading.individuals_out,
+                SensorLineReading.male_in,
+                SensorLineReading.male_out,
+                SensorLineReading.female_in,
+                SensorLineReading.female_out,
+                SensorLineReading.group_in,
+                SensorLineReading.group_out,
+                SensorLineReading.recorded_at,
+                SensorLineReading.received_at,
+            )
+        )
         .join(Sensor, Sensor.id == SensorLineReading.sensor_id)
         .join(Store, Store.id == Sensor.store_id)
         .join(UserStoreAccess, UserStoreAccess.store_id == Store.id)

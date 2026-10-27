@@ -2,7 +2,7 @@ import { Store } from 'lucide-react'
 import useStores from '../hooks/useStores'
 
 export default function Stores({ token }) {
-  const { stores, loading, error } = useStores(token)
+  const { stores, loading, error, refresh } = useStores(token)
 
   return (
     <div>
@@ -18,9 +18,12 @@ export default function Stores({ token }) {
       )}
 
       {error && (
-        <p className="mt-6 text-sm text-red-600">
-          {error}
-        </p>
+        <div role="alert" className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <span>{error}</span>
+          <button type="button" onClick={refresh} className="font-semibold underline underline-offset-2">
+            Retry
+          </button>
+        </div>
       )}
 
       {!loading && !error && stores.length === 0 && (

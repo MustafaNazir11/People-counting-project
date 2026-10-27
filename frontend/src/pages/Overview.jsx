@@ -1,5 +1,5 @@
 import { CalendarDays } from 'lucide-react'
-import sensorStatus from '../components/dashboard/sensorStatus'
+import CameraStatus from '../components/dashboard/CameraStatus'
 import StatsGrid from '../components/dashboard/StatsGrid'
 import VisitorActivity from '../components/dashboard/VisitorActivity'
 
@@ -26,7 +26,7 @@ export default function Overview() {
 
       <div className="mt-6 grid gap-6 xl:grid-cols-3">
         <VisitorActivity />
-        <sensorStatus />
+        <CameraStatus />
       </div>
 
       <p className="mt-6 text-xs text-slate-400">

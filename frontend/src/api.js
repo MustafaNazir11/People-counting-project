@@ -1,19 +1,30 @@
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
 
-export async function apiFetch(path, token) {
+export async function apiFetch(path, token, { signal } = {}) {
   const response = await fetch(`${API_URL}${path}`, {
     headers: {
-      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
+    signal,
   });
 
   if (response.status === 401) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('auth:expired'))
+    }
     throw new Error("Session expired. Please log in again.");
   }
 
   if (!response.ok) {
-    throw new Error("Could not load stores.");
+    const data = await response.json().catch(() => ({}))
+    throw new Error(
+      data.detail ||
+      (response.status === 403
+        ? 'You are not authorized to access this resource.'
+        : `Request failed (HTTP ${response.status}).`)
+    )
   }
 
   return response.json();

@@ -1,4 +1,4 @@
-import { sensor } from 'lucide-react'
+import { Camera } from 'lucide-react'
 
 const sensorStatuses = [
   ['Front entrance', 'Online'],
@@ -7,10 +7,10 @@ const sensorStatuses = [
   ['Warehouse', 'Online'],
 ]
 
-export default function sensorStatus() {
+export default function CameraStatus() {
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-6">
-      <h3 className="font-semibold">sensor status</h3>
+      <h3 className="font-semibold">Sensor status</h3>
       <p className="mt-1 text-sm text-slate-500">
         Current sensor connectivity
       </p>
@@ -19,7 +19,7 @@ export default function sensorStatus() {
         {sensorStatuses.map(([name, status]) => (
           <div key={name} className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <sensor size={18} className="text-slate-400" />
+              <Camera size={18} className="text-slate-400" />
               <span className="text-sm">{name}</span>
             </div>
             <span

@@ -11,7 +11,6 @@ venv/
 .agents/
 SECURITY-REVIEW.md
 skills-lock.json
-migrations/
 # React / Node
 node_modules/
 dist/

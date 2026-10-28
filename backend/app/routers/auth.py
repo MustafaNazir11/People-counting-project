@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
-from app.models import User
+from app.models import User, Organization
 from app.schemas import RegisterRequest
 from app.auth.auth import hash_password
 
@@ -91,6 +91,20 @@ async def login(
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password"
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="User account is disabled",
+        )
+
+    organization = await db.get(Organization, user.organization_id)
+
+    if organization is None or not organization.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Organization access is disabled",
         )
 
     token = create_access_token(

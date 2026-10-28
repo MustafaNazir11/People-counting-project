@@ -10,6 +10,7 @@ from sqlalchemy import (
     BigInteger, 
     Index,
     JSON,
+    Boolean,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -17,6 +18,46 @@ from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.database import Base
+
+class PlatformAdmin(Base):
+    __tablename__ = "platform_admins"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    email: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    password_hash: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+    )
+
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
 
 
 class Organization(Base):
@@ -30,6 +71,18 @@ class Organization(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
 
@@ -57,6 +110,12 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now
     )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+    )
 
 
 class Store(Base):
@@ -77,6 +136,12 @@ class Store(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now
     )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+    )
 
 
 class Sensor(Base):
@@ -88,12 +153,16 @@ class Sensor(Base):
     store_id: Mapped[int] = mapped_column(
         ForeignKey("stores.id"), nullable=False
     )
+    device_id: Mapped[str] = mapped_column(
+        String(100), nullable=False
+    )
     name: Mapped[str] = mapped_column(
         String(255), nullable=False
     )
     status: Mapped[str] = mapped_column(
         String(50), default="offline"
     )
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now
     )
@@ -117,6 +186,12 @@ class Sensor(Base):
     )
     config_synced_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    is_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
     )
 
 
@@ -211,6 +286,7 @@ class SensorLineReading(Base):
         ),
     )
 
+
 class SensorDeviceInfo(Base):
     __tablename__ = "sensor_device_info"
 
@@ -247,6 +323,8 @@ class SensorDeviceInfo(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+
 class SensorConfiguration(Base):
     __tablename__ = "sensor_configurations"
 
@@ -267,3 +345,5 @@ class SensorConfiguration(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+
+

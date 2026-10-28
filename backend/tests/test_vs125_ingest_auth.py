@@ -81,9 +81,15 @@ class SensorIngestAuthenticationTests(unittest.IsolatedAsyncioTestCase):
     async def test_credential_selects_sensor_and_ignores_spoofed_sensor_id(self):
         token = f"vs125_{'a' * 43}"
         self.db.execute.side_effect = [
-            SimpleNamespace(scalar_one_or_none=lambda: 17),
-            SimpleNamespace(rowcount=1),
-        ]
+    # 1. Credential resolves to sensor 17.
+        SimpleNamespace(scalar_one_or_none=lambda: 17),
+
+        # 2. Sensor, store, and organization are active.
+        SimpleNamespace(scalar_one_or_none=lambda: 17),
+
+        # 3. Reading insert succeeds.
+        SimpleNamespace(rowcount=1),
+    ]
         response = await self.client.post(
             "/sensors/vs125/ingest?sensor_id=99",
             headers={
@@ -105,7 +111,7 @@ class SensorIngestAuthenticationTests(unittest.IsolatedAsyncioTestCase):
             str(auth_statement.compile(dialect=postgresql.dialect())),
         )
 
-        insert_statement = self.db.execute.await_args_list[1].args[0]
+        insert_statement = self.db.execute.await_args_list[2].args[0]
         insert_params = insert_statement.compile(
             dialect=postgresql.dialect()
         ).params

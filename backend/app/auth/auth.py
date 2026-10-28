@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 from jose import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from pwdlib import PasswordHash
 from dotenv import load_dotenv
@@ -43,11 +43,26 @@ def create_access_token(
     payload = {
         "sub": str(user_id),
         "role": role,
-        "exp": datetime.utcnow() + timedelta(hours=24)
+        "exp": datetime.now(timezone.utc) + timedelta(hours=24)
     }
 
     return jwt.encode(
         payload,
         SECRET_KEY,
         algorithm=ALGORITHM
+    )
+
+
+def create_platform_admin_access_token(admin_id: int):
+    payload = {
+        "sub": str(admin_id),
+        "role": "platform_admin",
+        "token_type": "platform_admin",
+        "exp": datetime.now(timezone.utc) + timedelta(hours=8),
+    }
+
+    return jwt.encode(
+        payload,
+        SECRET_KEY,
+        algorithm=ALGORITHM,
     )

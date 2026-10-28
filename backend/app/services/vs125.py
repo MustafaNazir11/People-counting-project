@@ -53,105 +53,134 @@ async def resolve_ingest_sensor_id(
         )
     )
     return result.scalar_one_or_none()
-
 @router.post("/webhook")
 async def receive_vs125_data(request: Request):
-    """Accept a VS125 line-counting report and save it to PostgreSQL.
+    """Receive VS125 readings using an individual sensor token."""
 
-    Required environment variables:
-      - VS125_WEBHOOK_TOKEN: long random secret sent as a Bearer token.
-      - VS125_SENSOR_ID: existing row ID in the sensors table.
-
-    This first version deliberately does not claim idempotency: the actual
-    device payload has not yet been captured, so a stable event ID is unknown.
-    """
-    expected_token = os.getenv("VS125_WEBHOOK_TOKEN", "").strip()
-    provided_header = request.headers.get("Authorization", "")
+    auth_header = request.headers.get("Authorization", "")
     provided_token = (
-        provided_header[7:].strip()
-        if provided_header.lower().startswith("bearer ")
+        auth_header[7:].strip()
+        if auth_header.lower().startswith("bearer ")
         else ""
     )
 
-    if not expected_token:
-        logger.error("VS125_WEBHOOK_TOKEN is not configured")
+    if not provided_token:
         raise HTTPException(
-            status_code=503,
-            detail="VS125 webhook is not configured",
-        )
-    if not secrets.compare_digest(provided_token, expected_token):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-    raw_sensor_id = os.getenv("VS125_SENSOR_ID", "").strip()
-    try:
-        sensor_id = int(raw_sensor_id)
-        if sensor_id <= 0:
-            raise ValueError
-    except ValueError:
-        logger.error("VS125_SENSOR_ID must be a positive existing sensor ID")
-        raise HTTPException(
-            status_code=503,
-            detail="VS125 sensor mapping is not configured",
+            status_code=401,
+            detail="Missing sensor credentials",
         )
 
     try:
         data = await request.json()
     except Exception as exc:
-        raise HTTPException(status_code=400, detail="Invalid JSON payload") from exc
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid JSON payload",
+        ) from exc
 
     if not isinstance(data, dict):
-        raise HTTPException(status_code=422, detail="JSON body must be an object")
+        raise HTTPException(
+            status_code=422,
+            detail="JSON body must be an object",
+        )
 
     try:
         payload = validate_reading_payload(data)
     except ValidationError as exc:
-        # Return field errors, but do not log the full request or secrets.
         raise HTTPException(
             status_code=422,
-            detail={"message": "Payload does not match the expected VS125 schema", "errors": exc.errors()},
+            detail={
+                "message": "Invalid VS125 payload",
+                "errors": exc.errors(),
+            },
         ) from exc
 
-    if not payload.line_periodic_total_data:
-        return {"code": 0, "message": "ok", "readings_saved": 0}
-
-    received_at = datetime.now(timezone.utc)
-    rows = [
-        SensorLineReading(
-            sensor_id=sensor_id,
-            line_id=line.line,
-            line_name=line.line_name,
-            line_uuid=line.line_uuid,
-            individuals_in=line.in_count,
-            individuals_out=line.out_count,
-            male_in=line.male_in,
-            male_out=line.male_out,
-            female_in=line.female_in,
-            female_out=line.female_out,
-            group_in=line.group_in,
-            group_out=line.group_out,
-            recorded_at=received_at,
-            received_at=received_at,
+    async with AsyncSessionLocal() as db:
+        sensor_id = await resolve_ingest_sensor_id(
+            db, provided_token
         )
-        for line in payload.line_periodic_total_data
-    ]
 
-    try:
-        async with AsyncSessionLocal() as db:
+        if sensor_id is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or revoked sensor credentials",
+            )
+
+        result = await db.execute(
+            select(Sensor.id)
+            .join(Store, Store.id == Sensor.store_id)
+            .join(
+                Organization,
+                Organization.id == Store.organization_id,
+            )
+            .where(
+                Sensor.id == sensor_id,
+                Sensor.is_enabled.is_(True),
+                Store.is_active.is_(True),
+                Organization.is_active.is_(True),
+            )
+        )
+
+        if result.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Sensor, store, or organization is disabled",
+            )
+
+        if not payload.line_periodic_total_data:
+            return {
+                "code": 0,
+                "message": "ok",
+                "readings_saved": 0,
+            }
+
+        received_at = datetime.now(timezone.utc)
+
+        rows = [
+            SensorLineReading(
+                sensor_id=sensor_id,
+                line_id=line.line,
+                line_name=line.line_name,
+                line_uuid=line.line_uuid,
+                individuals_in=line.in_count,
+                individuals_out=line.out_count,
+                male_in=line.male_in,
+                male_out=line.male_out,
+                female_in=line.female_in,
+                female_out=line.female_out,
+                group_in=line.group_in,
+                group_out=line.group_out,
+                recorded_at=received_at,
+                received_at=received_at,
+            )
+            for line in payload.line_periodic_total_data
+        ]
+
+        try:
             db.add_all(rows)
             await db.commit()
-    except Exception as exc:
-        logger.exception("Failed to store VS125 webhook readings")
-        raise HTTPException(
-            status_code=500,
-            detail="Could not store VS125 readings",
-        ) from exc
+        except Exception as exc:
+            await db.rollback()
+            logger.exception(
+                "Failed to store VS125 webhook readings"
+            )
+            raise HTTPException(
+                status_code=500,
+                detail="Could not store VS125 readings",
+            ) from exc
 
-    logger.info("Stored %d VS125 reading(s) for sensor_id=%d", len(rows), sensor_id)
+    logger.info(
+        "Stored %d reading(s) for sensor_id=%d",
+        len(rows),
+        sensor_id,
+    )
+
     return {
         "code": 0,
         "message": "ok",
         "readings_saved": len(rows),
     }
+
 class LineReading(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 

@@ -20,7 +20,7 @@ class SensorReadQueryTests(unittest.IsolatedAsyncioTestCase):
 
         response = await get_vs125_readings(
             limit=1000,
-            current_user={"id": 7},
+            current_user={"id": 7, "organization_id": 1,"role": "store_user"},
             db=db,
         )
 

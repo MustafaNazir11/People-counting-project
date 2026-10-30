@@ -12,7 +12,7 @@ from app.services.milesight import (
     MilesightSettings,
     normalize_milesight_config,
 )
-from app.services.vs125 import (
+from app.services.vs125_service import (
     SensorPayload,
     ingest_readings,
     normalize_device_information,

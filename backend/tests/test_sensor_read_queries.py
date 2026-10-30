@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 from sqlalchemy.dialects import postgresql
 
 from app.routers.sensors import get_sensor_details
-from app.routers.vs125 import get_vs125_readings
+from app.routers.vs125_router import get_vs125_readings
 
 
 def result_with_scalar(value):

@@ -1,4 +1,3 @@
-
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -7,7 +6,7 @@ from sqlalchemy import (
     Integer,
     ForeignKey,
     DateTime,
-    BigInteger, 
+    BigInteger,
     Index,
     JSON,
     Boolean,
@@ -162,7 +161,7 @@ class Sensor(Base):
     status: Mapped[str] = mapped_column(
         String(50), default="offline"
     )
-    
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now
     )
@@ -263,6 +262,10 @@ class SensorLineReading(Base):
     female_out: Mapped[int] = mapped_column(Integer, nullable=False)
     group_in: Mapped[int] = mapped_column(Integer, nullable=False)
     group_out: Mapped[int] = mapped_column(Integer, nullable=False)
+    period_start_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    children: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -300,6 +303,7 @@ class SensorDeviceInfo(Base):
     )
 
     # Device configuration
+    device_name = Column(String(255), nullable=True)
     device_sn = Column(String, nullable=True)
     ip_address = Column(String, nullable=True)
     device_mac = Column(String, nullable=True)
@@ -346,4 +350,62 @@ class SensorConfiguration(Base):
         default=lambda: datetime.now(timezone.utc),
     )
 
+
+class SensorLineTotalSnapshot(Base):
+    """Cumulative counter snapshot reported by a VS125 line."""
+
+    __tablename__ = "sensor_line_total_snapshots"
+
+    id: Mapped[int] = mapped_column(
+        BigInteger, primary_key=True, autoincrement=True
+    )
+    sensor_id: Mapped[int] = mapped_column(
+        ForeignKey("sensors.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    line_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    line_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    line_uuid: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    individuals_in: Mapped[int] = mapped_column(Integer, nullable=False)
+    individuals_out: Mapped[int] = mapped_column(Integer, nullable=False)
+    male_in: Mapped[int] = mapped_column(Integer, nullable=False)
+    male_out: Mapped[int] = mapped_column(Integer, nullable=False)
+    female_in: Mapped[int] = mapped_column(Integer, nullable=False)
+    female_out: Mapped[int] = mapped_column(Integer, nullable=False)
+    group_in: Mapped[int] = mapped_column(Integer, nullable=False)
+    group_out: Mapped[int] = mapped_column(Integer, nullable=False)
+    capacity_counted: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    children: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    raw_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    is_retransmission: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+
+    period_start_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_vs125_total_sensor_recorded",
+            "sensor_id",
+            "recorded_at",
+        ),
+        UniqueConstraint(
+            "sensor_id",
+            "recorded_at",
+            "line_uuid",
+            name="uq_sensor_total_snapshot_sensor_line_time",
+        ),
+    )
 

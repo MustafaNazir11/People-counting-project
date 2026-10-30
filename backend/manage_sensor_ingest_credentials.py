@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from app.database import AsyncSessionLocal, engine
 from app.models import Sensor, SensorIngestCredential
-from app.services.vs125 import hash_ingest_token
+from app.services.vs125_service import hash_ingest_token
 
 
 def parse_arguments() -> argparse.Namespace:

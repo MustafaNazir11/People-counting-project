@@ -11,7 +11,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from app import models
 from app.auth.dependencies import get_current_user
 from app.database import Base, engine
-from app.routers import auth, sensors, stores, vs125 , platform_admin
+from app.routers import auth, sensors, stores, platform_admin
+from app.routers import vs125_router
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(stores.router, prefix="/stores", tags=["Stores"])
 app.include_router(sensors.router, prefix="/sensors", tags=["sensors"])
-app.include_router(vs125.router)
+app.include_router(vs125_router.router)
 app.include_router(platform_admin.router)
 
 

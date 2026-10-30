@@ -6,8 +6,8 @@ import httpx
 from sqlalchemy.dialects import postgresql
 
 from app.main import app
-from app.routers.vs125 import get_db
-from app.services.vs125 import hash_ingest_token
+from app.routers.vs125_router import get_db
+from app.services.vs125_service import hash_ingest_token
 
 
 def valid_payload():

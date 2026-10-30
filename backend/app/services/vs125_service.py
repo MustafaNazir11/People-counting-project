@@ -16,6 +16,7 @@ from app.models import (
     SensorDeviceInfo,
     SensorIngestCredential,
     SensorLineReading,
+    SensorLineTotalSnapshot,
 )
 from app.services.milesight import (
     MilesightClient,
@@ -467,3 +468,224 @@ def constant_time_token_matches(provided: str, expected: str | None) -> bool:
         expected
         and secrets.compare_digest(provided, expected)
     )
+
+
+def _report_datetime(value: Any, field_name: str, fallback: datetime) -> datetime:
+    """Parse Milesight ISO-8601 timestamps, preserving their UTC offset."""
+    if value is None:
+        return fallback
+    if not isinstance(value, str):
+        raise ValueError(f"time_info.{field_name} must be an ISO-8601 string")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"time_info.{field_name} is not a valid ISO-8601 timestamp") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _read_count(container: Any, key: str, *, suffix: str = "") -> int:
+    if not isinstance(container, dict):
+        raise ValueError(f"VS125 count container for {key} must be an object")
+    value = container.get(f"{key}{suffix}", 0)
+    if isinstance(value, bool):
+        raise ValueError(f"Invalid VS125 count: {key}{suffix}")
+    try:
+        count = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid VS125 count: {key}{suffix}") from exc
+    if count < 0:
+        raise ValueError(f"VS125 count cannot be negative: {key}{suffix}")
+    return count
+
+
+def _normalize_device_line(
+    line: Any,
+    *,
+    cumulative: bool,
+    sensor_id: int,
+    period_start: datetime,
+    period_end: datetime,
+    received_at: datetime,
+    is_retransmission: bool,
+) -> dict[str, Any]:
+    if not isinstance(line, dict):
+        raise ValueError("Each VS125 line report must be an object")
+
+    total = line.get("total") or {}
+    group = line.get("group") or {}
+    children = line.get("children") or {}
+    if not all(isinstance(part, dict) for part in (total, group, children)):
+        raise ValueError("VS125 total, group and children fields must be objects")
+
+    line_uuid = line.get("line_uuid")
+    if not isinstance(line_uuid, str) or not line_uuid.strip():
+        raise ValueError("Each VS125 line must contain a valid line_uuid")
+
+    line_id = _read_count({"line": line.get("line", 0)}, "line")
+    line_name = line.get("line_name")
+    if not isinstance(line_name, str) or not line_name.strip():
+        raise ValueError("Each VS125 line must contain a valid line_name")
+
+    suffix = "_counted" if cumulative else ""
+    return {
+        "sensor_id": sensor_id,
+        "line_id": line_id,
+        "line_name": line_name.strip(),
+        "line_uuid": line_uuid.strip(),
+        "individuals_in": _read_count(total, "in", suffix=suffix),
+        "individuals_out": _read_count(total, "out", suffix=suffix),
+        "male_in": _read_count(total, "male_in", suffix=suffix),
+        "male_out": _read_count(total, "male_out", suffix=suffix),
+        "female_in": _read_count(total, "female_in", suffix=suffix),
+        "female_out": _read_count(total, "female_out", suffix=suffix),
+        "group_in": _read_count(group, "in", suffix=suffix),
+        "group_out": _read_count(group, "out", suffix=suffix),
+        "children": children,
+        "period_start_at": period_start,
+        "recorded_at": period_end,
+        "received_at": received_at,
+        "is_retransmission": is_retransmission,
+        "capacity_counted": (
+            _read_count(total, "capacity", suffix=suffix)
+            if cumulative and "capacity_counted" in total
+            else None
+        ),
+        "raw_data": line,
+    }
+
+
+async def ingest_device_report(
+    db: AsyncSession,
+    sensor_id: int,
+    data: dict[str, Any],
+) -> dict[str, int]:
+    """
+    Persist the actual VS125 HTTP report:
+      - line_periodic_data -> interval readings for footfall analytics
+      - line_total_data -> cumulative counter snapshots
+    """
+    received_at = datetime.now(timezone.utc)
+    time_info = data.get("time_info") or {}
+    if not isinstance(time_info, dict):
+        raise ValueError("time_info must be an object")
+
+    period_start = _report_datetime(
+        time_info.get("start_time"), "start_time", received_at
+    )
+    period_end = _report_datetime(
+        time_info.get("end_time"), "end_time", received_at
+    )
+    if period_end < period_start:
+        raise ValueError("VS125 report end_time is earlier than start_time")
+
+    retransmission = data.get("isRetransmission", False)
+    if not isinstance(retransmission, bool):
+        raise ValueError("isRetransmission must be a boolean")
+
+    # Actual VS125 payload uses line_periodic_data. The alternate key is
+    # retained for older firmware/integrations already sending this shape.
+    periodic_data = data.get("line_periodic_data")
+    if periodic_data is None:
+        periodic_data = data.get("line_periodic_total_data", [])
+    total_data = data.get("line_total_data", [])
+
+    if not isinstance(periodic_data, list) or not isinstance(total_data, list):
+        raise ValueError("VS125 periodic and total readings must be arrays")
+
+    periodic_values = [
+        _normalize_device_line(
+            line,
+            cumulative=False,
+            sensor_id=sensor_id,
+            period_start=period_start,
+            period_end=period_end,
+            received_at=received_at,
+            is_retransmission=retransmission,
+        )
+        for line in periodic_data
+    ]
+    total_values = [
+        _normalize_device_line(
+            line,
+            cumulative=True,
+            sensor_id=sensor_id,
+            period_start=period_start,
+            period_end=period_end,
+            received_at=received_at,
+            is_retransmission=retransmission,
+        )
+        for line in total_data
+    ]
+
+    # Deterministic event key: the VS125 report window is stable across
+    # retransmissions, unlike a random key generated by the receiving server.
+    event_material = (
+        f"{sensor_id}|{period_start.isoformat()}|{period_end.isoformat()}"
+    )
+    source_event_id = "vs125:" + hashlib.sha256(
+        event_material.encode("utf-8")
+    ).hexdigest()
+
+    periodic_saved = 0
+    totals_upserted = 0
+
+    if periodic_values:
+        periodic_rows = [
+            {
+                key: value
+                for key, value in row.items()
+                if key not in {
+                    "is_retransmission",
+                    "capacity_counted",
+                    "raw_data",
+                }
+            }
+            | {
+                "source_event_id": source_event_id,
+            }
+            for row in periodic_values
+        ]
+        # `children` is retained in its own JSONB column. Replayed windows
+        # are ignored by the existing unique constraint.
+        statement = insert(SensorLineReading).values(periodic_rows)
+        statement = statement.on_conflict_do_nothing(
+            constraint="uq_sensor_reading_source_event_line"
+        )
+        result = await db.execute(statement)
+        periodic_saved = result.rowcount or 0
+
+    if total_values:
+        statement = insert(SensorLineTotalSnapshot).values(total_values)
+        statement = statement.on_conflict_do_update(
+            constraint="uq_sensor_total_snapshot_sensor_line_time",
+            set_={
+                "line_id": statement.excluded.line_id,
+                "line_name": statement.excluded.line_name,
+                "individuals_in": statement.excluded.individuals_in,
+                "individuals_out": statement.excluded.individuals_out,
+                "male_in": statement.excluded.male_in,
+                "male_out": statement.excluded.male_out,
+                "female_in": statement.excluded.female_in,
+                "female_out": statement.excluded.female_out,
+                "group_in": statement.excluded.group_in,
+                "group_out": statement.excluded.group_out,
+                "capacity_counted": statement.excluded.capacity_counted,
+                "children": statement.excluded.children,
+                "raw_data": statement.excluded.raw_data,
+                "is_retransmission": statement.excluded.is_retransmission,
+                "period_start_at": statement.excluded.period_start_at,
+                "received_at": statement.excluded.received_at,
+            },
+        )
+        result = await db.execute(statement)
+        totals_upserted = result.rowcount or 0
+
+    return {
+        "periodic_records_saved": periodic_saved,
+        "total_snapshots_upserted": totals_upserted,
+        "periodic_lines_received": len(periodic_values),
+        "total_lines_received": len(total_values),
+    }
+

@@ -377,17 +377,28 @@ def _report_datetime(value: Any, field_name: str, fallback: datetime) -> datetim
 def _read_count(container: Any, key: str, *, suffix: str = "") -> int:
     if not isinstance(container, dict):
         raise ValueError(f"VS125 count container for {key} must be an object")
-    value = container.get(f"{key}{suffix}", 0)
+
+    field = f"{key}{suffix}"
+
+    if field not in container:
+        raise ValueError(
+            f"Missing VS125 field: {field}. Available fields: {list(container.keys())}"
+        )
+
+    value = container[field]
+
     if isinstance(value, bool):
-        raise ValueError(f"Invalid VS125 count: {key}{suffix}")
+        raise ValueError(f"Invalid VS125 count: {field}")
+
     try:
         count = int(value)
     except (TypeError, ValueError) as exc:
-        raise ValueError(f"Invalid VS125 count: {key}{suffix}") from exc
-    if count < 0:
-        raise ValueError(f"VS125 count cannot be negative: {key}{suffix}")
-    return count
+        raise ValueError(f"Invalid VS125 count: {field}") from exc
 
+    if count < 0:
+        raise ValueError(f"VS125 count cannot be negative: {field}")
+
+    return count
 
 def _normalize_device_line(
     line: Any,
@@ -423,14 +434,16 @@ def _normalize_device_line(
         "line_id": line_id,
         "line_name": line_name.strip(),
         "line_uuid": line_uuid.strip(),
-        "individuals_in": _read_count(total, "in", suffix=suffix),
-        "individuals_out": _read_count(total, "out", suffix=suffix),
-        "male_in": _read_count(total, "male_in", suffix=suffix),
-        "male_out": _read_count(total, "male_out", suffix=suffix),
-        "female_in": _read_count(total, "female_in", suffix=suffix),
-        "female_out": _read_count(total, "female_out", suffix=suffix),
-        "group_in": _read_count(group, "in", suffix=suffix),
-        "group_out": _read_count(group, "out", suffix=suffix),
+        # Choose count source based on whether this is cumulative total or periodic interval.
+        count_source = total 
+        "individuals_in": _read_count(count_source, "in", suffix=suffix),
+        "individuals_out": _read_count(count_source, "out", suffix=suffix),
+        "male_in": _read_count(count_source, "male_in", suffix=suffix),
+        "male_out": _read_count(count_source, "male_out", suffix=suffix),
+        "female_in": _read_count(count_source, "female_in", suffix=suffix),
+        "female_out": _read_count(count_source, "female_out", suffix=suffix),
+        "group_in": _read_count(group, "in", suffix=suffix) if cumulative else 0,
+        "group_out": _read_count(group, "out", suffix=suffix) if cumulative else 0,
         "children": children,
         "period_start_at": period_start,
         "recorded_at": period_end,

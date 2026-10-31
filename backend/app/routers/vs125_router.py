@@ -16,7 +16,7 @@ from app.models import (
     SensorConfiguration, SensorDeviceInfo, SensorLineTotalSnapshot,
 )
 from app.auth.dependencies import get_current_user
-from backend.app.services.vs125_service import (
+from app.services.vs125_service import (
     SensorPayload,
     ingest_readings,
     resolve_ingest_sensor_id,
@@ -135,24 +135,14 @@ async def vs125_device_webhook(request: Request):
         )
 
     try:
-        decoded = base64.b64decode(
-            authorization.split(" ", 1)[1],
-            validate=True,
-        ).decode("utf-8")
-        username, password = decoded.split(":", 1)
-    except (ValueError, UnicodeDecodeError) as exc:
-        raise HTTPException(status_code=401, detail="Invalid credentials") from exc
-
-    if not (
-        secrets.compare_digest(username, expected_username)
-        and secrets.compare_digest(password, expected_password)
-    ):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    try:
         data = await request.json()
     except Exception as exc:
         raise HTTPException(status_code=400, detail="Invalid JSON") from exc
+
+    logger.warning(
+        "VS125 incoming payload: %s",
+        json.dumps(data, indent=2)
+    )
 
     if not isinstance(data, dict):
         raise HTTPException(status_code=422, detail="Expected a JSON object")

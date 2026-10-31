@@ -18,11 +18,7 @@ from app.models import (
     SensorLineReading,
     SensorLineTotalSnapshot,
 )
-from app.services.milesight import (
-    MilesightClient,
-    get_client,
-    normalize_milesight_config,
-)
+
 
 import logging
 
@@ -299,113 +295,6 @@ async def sync_device_information(
         await db.rollback()
         raise
     return True
-
-
-async def sync_saved_configuration(
-    db: AsyncSession,
-    sensor_id: int,
-    response: dict[str, Any],
-) -> dict[str, Any]:
-    values = normalize_milesight_config(response)
-    fetched_at = datetime.now(timezone.utc)
-    statement = insert(SensorConfiguration).values(
-        sensor_id=sensor_id,
-        configuration=values,
-        fetched_at=fetched_at,
-    )
-    statement = statement.on_conflict_do_update(
-        index_elements=[SensorConfiguration.sensor_id],
-        set_={
-            "configuration": values,
-            "fetched_at": fetched_at,
-        },
-    )
-    try:
-        await db.execute(statement)
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        raise
-    return values
-
-
-async def refresh_sensor_data(
-    db: AsyncSession,
-    sensor_id: int,
-    idempotency_key: str,
-    device_id: str | None = None,
-    client: MilesightClient | None = None,
-) -> dict[str, Any]:
-    milesight = client or get_client()
-    device_response = await milesight.get_device_information(device_id)
-    configuration_response = await milesight.get_device_configuration(device_id)
-    readings_response = await milesight.get_line_readings(device_id)
-
-    device_info = normalize_device_information(device_response)
-    configuration = normalize_milesight_config(configuration_response)
-    try:
-        readings = validate_reading_payload(readings_response)
-    except ValidationError as exc:
-        raise ValueError(
-            "Milesight readings do not match the configured VS125 payload schema."
-        ) from exc
-
-    key = validate_idempotency_key(idempotency_key)
-    now = datetime.now(timezone.utc)
-    statements = []
-    if device_info is not None:
-        info_updated_at = datetime.now(timezone.utc)
-        device_statement = insert(SensorDeviceInfo).values(
-            sensor_id=sensor_id,
-            updated_at=info_updated_at,
-            **device_info,
-        )
-        statements.append(
-            device_statement.on_conflict_do_update(
-                index_elements=[SensorDeviceInfo.sensor_id],
-                set_={**device_info, "updated_at": info_updated_at},
-            )
-        )
-    config_statement = insert(SensorConfiguration).values(
-        sensor_id=sensor_id,
-        configuration=configuration,
-        fetched_at=now,
-    )
-    statements.append(
-        config_statement.on_conflict_do_update(
-            index_elements=[SensorConfiguration.sensor_id],
-            set_={
-                "configuration": configuration,
-                "fetched_at": now,
-            },
-        )
-    )
-    readings_statement = _build_readings_insert(
-        sensor_id,
-        key,
-        readings,
-        now,
-    )
-    if readings_statement is not None:
-        statements.append(readings_statement)
-
-    try:
-        readings_saved = 0
-        for statement in statements:
-            result = await db.execute(statement)
-            if statement is readings_statement and result.rowcount is not None:
-                readings_saved = result.rowcount
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        raise
-
-    return {
-        "device_info_saved": device_info is not None,
-        "configuration_saved": True,
-        "readings": readings,
-        "readings_saved": readings_saved,
-    }
 
 
 def _build_readings_insert(

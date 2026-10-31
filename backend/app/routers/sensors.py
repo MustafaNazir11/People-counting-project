@@ -2,7 +2,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 import logging
 
-import httpx
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
@@ -17,11 +16,7 @@ from app.models import (
     UserStoreAccess,
 )
 from app.auth.dependencies import get_current_user
-from app.services.milesight import (
-    MilesightConfigurationError,
-    get_client,
-    normalize_milesight_config,
-)
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -245,85 +240,6 @@ async def get_sensor_details(
             for reading in latest_readings
         ],
     }
-@router.get("/milesight/config")
-async def milesight_config(
-    sensor_id: int,
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    try:
-        sensor = await get_accessible_sensor(
-            sensor_id=sensor_id,
-            user_id=current_user["id"],
-            db=db,
-        )
-        if not sensor.milesight_device_id:
-            raise HTTPException(
-                status_code=409,
-                detail="No Milesight device ID is configured for this sensor.",
-            )
-        response = await get_client().get_device_configuration(
-            sensor.milesight_device_id
-        )
-        return normalize_milesight_config(response)
-    except MilesightConfigurationError as exc:
-        logger.warning("Milesight configuration is incomplete: %s", exc)
-        raise HTTPException(
-            status_code=503,
-            detail="Milesight configuration is incomplete.",
-        ) from exc
-    except httpx.HTTPStatusError as exc:
-        logger.warning(
-            "Milesight configuration request failed with HTTP %s",
-            exc.response.status_code,
-        )
-        message = (
-            "Milesight authorization failed; verify the access token and permissions."
-            if exc.response.status_code in (401, 403)
-            else "Milesight rejected the configuration request."
-        )
-        raise HTTPException(
-            status_code=502,
-            detail=message,
-        ) from exc
-    except httpx.TimeoutException as exc:
-        logger.warning(
-            "Milesight configuration request timed out (%s).",
-            type(exc).__name__,
-        )
-        raise HTTPException(
-            status_code=504,
-            detail="Milesight configuration request timed out.",
-        ) from exc
-    except httpx.RequestError as exc:
-        logger.warning(
-            "Milesight configuration service could not be reached (%s).",
-            type(exc).__name__,
-        )
-        raise HTTPException(
-            status_code=502,
-            detail="Milesight could not be reached.",
-        ) from exc
-    except ValueError as exc:
-        logger.warning(
-            "Milesight returned invalid configuration data (%s).",
-            type(exc).__name__,
-        )
-        raise HTTPException(
-            status_code=502,
-            detail="Milesight returned an invalid configuration response.",
-        ) from exc
-
-
-@router.get("/milesight/history")
-async def milesight_history():
-    raise HTTPException(
-        status_code=501,
-        detail=(
-            "Milesight history is unavailable until the endpoint "
-            "parameters and response schema are verified."
-        ),
-    )
 
 
 @router.get("/{sensor_id}/history")

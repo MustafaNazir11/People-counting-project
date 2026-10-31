@@ -135,6 +135,27 @@ async def vs125_device_webhook(request: Request):
         )
 
     try:
+        decoded = base64.b64decode(
+            authorization.split(" ", 1)[1],
+            validate=True,
+        ).decode("utf-8")
+        username, password = decoded.split(":", 1)
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid credentials",
+        ) from exc
+
+    if not (
+        secrets.compare_digest(username, expected_username)
+        and secrets.compare_digest(password, expected_password)
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid credentials",
+        )
+
+    try:
         data = await request.json()
     except Exception as exc:
         raise HTTPException(status_code=400, detail="Invalid JSON") from exc
@@ -323,6 +344,7 @@ async def get_vs125_readings(
     start_date: date | None = None,
     end_date: date | None = None,
     limit: int = Query(default=1000, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -393,15 +415,22 @@ async def get_vs125_readings(
         )
         query = query.where(SensorLineReading.recorded_at < end_at)
 
+    # Stable ascending order prevents new reports from shifting earlier pages.
     query = query.order_by(
-        desc(SensorLineReading.received_at)
-    ).limit(limit)
+        SensorLineReading.received_at.asc(),
+        SensorLineReading.id.asc(),
+    ).offset(offset).limit(limit + 1)
 
     result = await db.execute(query)
-    rows = result.all()
+    fetched_rows = result.all()
+    has_more = len(fetched_rows) > limit
+    rows = fetched_rows[:limit]
 
     return {
         "count": len(rows),
+        "has_more": has_more,
+        "offset": offset,
+        "limit": limit,
         "readings": [
             {
                 "id": row.id,

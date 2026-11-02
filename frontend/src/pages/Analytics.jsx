@@ -16,12 +16,9 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Legend,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -109,6 +106,7 @@ const PRESETS = [
       endDate: inputDate(end),
     }
   } },
+  { label: 'Custom', range: null },
 ]
 
 const tooltipStyle = {
@@ -245,6 +243,62 @@ function SectionHeading({ title, description, action }) {
   )
 }
 
+// Male full-body silhouette SVG — clean vector illustration
+function MaleSilhouette({ color = MALE_COLOR }) {
+  return (
+    <svg
+      viewBox="0 0 120 240"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="Male silhouette"
+      role="img"
+      style={{ width: '100%', height: '100%', maxWidth: 120 }}
+    >
+      {/* Head */}
+      <circle cx="60" cy="28" r="22" fill={color} />
+      {/* Neck */}
+      <rect x="52" y="48" width="16" height="12" rx="4" fill={color} />
+      {/* Torso — broad shoulders, straight sides */}
+      <path d="M22 68 Q22 60 60 60 Q98 60 98 68 L104 130 Q104 136 98 136 H22 Q16 136 16 130 Z" fill={color} />
+      {/* Left arm */}
+      <path d="M22 68 L8 76 L6 148 Q6 154 12 154 L20 154 L24 136 L22 68 Z" fill={color} />
+      {/* Right arm */}
+      <path d="M98 68 L112 76 L114 148 Q114 154 108 154 L100 154 L96 136 L98 68 Z" fill={color} />
+      {/* Left leg */}
+      <path d="M22 136 L16 240 H46 L56 170 L56 136 Z" fill={color} />
+      {/* Right leg */}
+      <path d="M98 136 L104 240 H74 L64 170 L64 136 Z" fill={color} />
+    </svg>
+  )
+}
+
+// Female full-body silhouette SVG — clean vector illustration
+function FemaleSilhouette({ color = FEMALE_COLOR }) {
+  return (
+    <svg
+      viewBox="0 0 120 240"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="Female silhouette"
+      role="img"
+      style={{ width: '100%', height: '100%', maxWidth: 120 }}
+    >
+      {/* Head */}
+      <circle cx="60" cy="28" r="22" fill={color} />
+      {/* Neck */}
+      <rect x="52" y="48" width="16" height="12" rx="4" fill={color} />
+      {/* Torso — narrower shoulders, flared hips */}
+      <path d="M30 64 Q30 58 60 58 Q90 58 90 64 L92 100 Q96 120 100 136 H20 Q24 120 28 100 Z" fill={color} />
+      {/* Left arm — slimmer */}
+      <path d="M30 64 L16 72 L14 144 Q14 150 20 150 L28 150 L30 136 L28 100 Z" fill={color} />
+      {/* Right arm — slimmer */}
+      <path d="M90 64 L104 72 L106 144 Q106 150 100 150 L92 150 L90 136 L92 100 Z" fill={color} />
+      {/* Skirt / flared lower torso */}
+      <path d="M20 136 Q14 160 16 184 L30 240 H54 L60 184 L66 240 H90 L104 184 Q106 160 100 136 Z" fill={color} />
+    </svg>
+  )
+}
+
 function GenderDistribution({ totals, loading }) {
   const malePercent = totals.totalIn
     ? (totals.maleIn / totals.totalIn) * 100
@@ -252,10 +306,6 @@ function GenderDistribution({ totals, loading }) {
   const femalePercent = totals.totalIn
     ? (totals.femaleIn / totals.totalIn) * 100
     : 0
-  const genderData = [
-    { name: 'Male', value: totals.maleIn, color: MALE_COLOR },
-    { name: 'Female', value: totals.femaleIn, color: FEMALE_COLOR },
-  ]
 
   return (
     <section className="rounded-2xl border border-[#ebebeb] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6">
@@ -264,58 +314,55 @@ function GenderDistribution({ totals, loading }) {
         description="Male vs Female visitors — visitor count and percentage of total entries."
       />
       {totals.totalIn > 0 ? (
-        <div className="grid items-center gap-4 sm:grid-cols-[minmax(200px,0.9fr)_1.1fr]">
-          <div className="h-56 min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={genderData}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={62}
-                  outerRadius={88}
-                  paddingAngle={3}
-                  stroke="white"
-                  strokeWidth={3}
-                >
-                  {genderData.map((item) => <Cell key={item.name} fill={item.color} />)}
-                </Pie>
-                <Tooltip
-                  contentStyle={tooltipStyle}
-                  formatter={(value, name) => [Number(value).toLocaleString(), `${name} visitors`]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="space-y-4">
-            {[
-              { label: 'Male', value: totals.maleIn, percent: malePercent, icon: Mars, color: MALE_COLOR },
-              { label: 'Female', value: totals.femaleIn, percent: femalePercent, icon: Venus, color: FEMALE_COLOR },
-            ].map(({ label, value, percent, icon: Icon, color }) => (
-              <div key={label} className="rounded-xl border border-[#f2f2f2] bg-[#fafafa] p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="inline-flex items-center gap-2 text-sm font-medium text-[#4d4d4d]">
-                    <Icon size={18} color={color} aria-hidden="true" />
-                    {label}
-                  </span>
-                  <span className="text-sm text-[#8f8f8f]">{percent.toFixed(1)}%</span>
-                </div>
-                <p className="mt-2 text-2xl font-semibold tabular-nums text-[#171717]">
-                  {value.toLocaleString()}
-                  <span className="ml-2 text-sm font-normal text-[#8f8f8f]">visitors</span>
-                </p>
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#ebebeb]">
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${Math.min(100, percent)}%`, backgroundColor: color }}
-                  />
-                </div>
+        <div className="flex flex-col items-stretch gap-6">
+          {/* Silhouette figures row */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Male */}
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-[#e8f0ff] bg-[#f5f9ff] px-4 py-6">
+              <div style={{ height: 160, width: 80 }}>
+                <MaleSilhouette color={MALE_COLOR} />
               </div>
-            ))}
-            <p className="text-xs text-[#8f8f8f]">
-              Percentages use corrected aggregated gender counts divided by total entries.
-            </p>
+              <p className="text-3xl font-semibold tabular-nums tracking-tight" style={{ color: MALE_COLOR }}>
+                {malePercent.toFixed(1)}%
+              </p>
+              <p className="text-xl font-semibold tabular-nums text-[#171717]">
+                {totals.maleIn.toLocaleString()}
+              </p>
+              <p className="text-sm font-medium text-[#4d4d4d]">Male</p>
+              {/* Progress bar */}
+              <div className="w-full h-1.5 overflow-hidden rounded-full bg-[#dbeafe]">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, malePercent)}%`, backgroundColor: MALE_COLOR }}
+                />
+              </div>
+            </div>
+
+            {/* Female */}
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-[#ffe4f0] bg-[#fff5f9] px-4 py-6">
+              <div style={{ height: 160, width: 80 }}>
+                <FemaleSilhouette color={FEMALE_COLOR} />
+              </div>
+              <p className="text-3xl font-semibold tabular-nums tracking-tight" style={{ color: FEMALE_COLOR }}>
+                {femalePercent.toFixed(1)}%
+              </p>
+              <p className="text-xl font-semibold tabular-nums text-[#171717]">
+                {totals.femaleIn.toLocaleString()}
+              </p>
+              <p className="text-sm font-medium text-[#4d4d4d]">Female</p>
+              {/* Progress bar */}
+              <div className="w-full h-1.5 overflow-hidden rounded-full bg-[#fce7f3]">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, femalePercent)}%`, backgroundColor: FEMALE_COLOR }}
+                />
+              </div>
+            </div>
           </div>
+
+          <p className="text-xs text-[#8f8f8f]">
+            Percentages use corrected aggregated gender counts divided by total entries.
+          </p>
         </div>
       ) : (
         <div className="flex h-56 items-center justify-center rounded-xl border border-dashed border-[#ebebeb] text-sm text-[#8f8f8f]">
@@ -559,6 +606,8 @@ export default function Analytics({ token }) {
   const [draftRange, setDraftRange] = useState(defaultRange)
   const [dateRange, setDateRange] = useState(defaultRange)
   const [rangeError, setRangeError] = useState('')
+  const [activePreset, setActivePreset] = useState(null)
+  const [showCustom, setShowCustom] = useState(false)
   const [readings, setReadings] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -826,10 +875,17 @@ export default function Analytics({ token }) {
   }
 
   function applyPreset(preset) {
+    if (preset.label === 'Custom') {
+      setShowCustom(true)
+      setActivePreset('Custom')
+      return
+    }
     const range = preset.range()
     setDraftRange(range)
     setDateRange(range)
     setRangeError('')
+    setActivePreset(preset.label)
+    setShowCustom(false)
   }
 
   return (
@@ -850,7 +906,9 @@ export default function Analytics({ token }) {
           <Store size={17} color="#8f8f8f" aria-hidden="true" />
           Filters
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+
+        {/* Row 1 — Selection Filters */}
+        <div className="grid gap-3 sm:grid-cols-3">
           <FilterSelect
             label="Store"
             value={storeId}
@@ -893,48 +951,29 @@ export default function Analytics({ token }) {
               </option>
             ))}
           </FilterSelect>
-          <div className="flex min-w-0 flex-wrap items-end gap-1.5 sm:col-span-2">
+        </div>
+
+        {/* Divider */}
+        <div className="my-4 h-px bg-[#f2f2f2]" />
+
+        {/* Row 2 — Date Filters + Refresh */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-1.5">
             {PRESETS.map((preset) => (
               <button
                 key={preset.label}
                 type="button"
                 onClick={() => applyPreset(preset)}
-                className="rounded-full border border-[#ebebeb] bg-white px-3 py-2 text-xs font-medium text-[#4d4d4d] transition-colors hover:bg-[#fafafa]"
+                className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                  activePreset === preset.label
+                    ? 'border-[#171717] bg-[#171717] text-white'
+                    : 'border-[#ebebeb] bg-white text-[#4d4d4d] hover:bg-[#fafafa]'
+                }`}
               >
                 {preset.label}
               </button>
             ))}
           </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-[#f2f2f2] pt-4">
-          <form onSubmit={applyRange} className="flex flex-wrap items-end gap-3">
-            <label className="grid gap-1 text-xs font-medium text-[#8f8f8f]">
-              From
-              <input
-                type="date"
-                value={draftRange.startDate}
-                onChange={(event) => setDraftRange((range) => ({ ...range, startDate: event.target.value }))}
-                required
-                className="h-10 rounded-md border border-[#ebebeb] bg-white px-3 text-sm text-[#171717] outline-none focus:border-[#171717]"
-              />
-            </label>
-            <label className="grid gap-1 text-xs font-medium text-[#8f8f8f]">
-              To
-              <input
-                type="date"
-                value={draftRange.endDate}
-                onChange={(event) => setDraftRange((range) => ({ ...range, endDate: event.target.value }))}
-                required
-                className="h-10 rounded-md border border-[#ebebeb] bg-white px-3 text-sm text-[#171717] outline-none focus:border-[#171717]"
-              />
-            </label>
-            <button type="submit" className="inline-flex h-10 items-center gap-2 rounded-md bg-[#171717] px-3 text-sm font-medium text-white transition-opacity hover:opacity-80">
-              <CalendarDays size={15} />
-              Apply dates
-            </button>
-            {rangeError && <p role="alert" className="basis-full text-xs text-[#ee0000]">{rangeError}</p>}
-          </form>
           <button
             type="button"
             onClick={() => setRefreshKey((key) => key + 1)}
@@ -946,6 +985,39 @@ export default function Analytics({ token }) {
             Refresh
           </button>
         </div>
+
+        {/* Custom date pickers — shown only when Custom is active */}
+        {showCustom && (
+          <div className="mt-4 border-t border-[#f2f2f2] pt-4">
+            <form onSubmit={applyRange} className="flex flex-wrap items-end gap-3">
+              <label className="grid gap-1 text-xs font-medium text-[#8f8f8f]">
+                From
+                <input
+                  type="date"
+                  value={draftRange.startDate}
+                  onChange={(event) => setDraftRange((range) => ({ ...range, startDate: event.target.value }))}
+                  required
+                  className="h-10 rounded-md border border-[#ebebeb] bg-white px-3 text-sm text-[#171717] outline-none focus:border-[#171717]"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-medium text-[#8f8f8f]">
+                To
+                <input
+                  type="date"
+                  value={draftRange.endDate}
+                  onChange={(event) => setDraftRange((range) => ({ ...range, endDate: event.target.value }))}
+                  required
+                  className="h-10 rounded-md border border-[#ebebeb] bg-white px-3 text-sm text-[#171717] outline-none focus:border-[#171717]"
+                />
+              </label>
+              <button type="submit" className="inline-flex h-10 items-center gap-2 rounded-md bg-[#171717] px-3 text-sm font-medium text-white transition-opacity hover:opacity-80">
+                <CalendarDays size={15} />
+                Apply dates
+              </button>
+              {rangeError && <p role="alert" className="basis-full text-xs text-[#ee0000]">{rangeError}</p>}
+            </form>
+          </div>
+        )}
       </section>
 
       {(loadError || storesError || sensorsError) && (

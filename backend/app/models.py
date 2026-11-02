@@ -149,49 +149,47 @@ class Sensor(Base):
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True
     )
+
     store_id: Mapped[int] = mapped_column(
         ForeignKey("stores.id"), nullable=False
     )
-    device_id: Mapped[str] = mapped_column(
-        String(100), nullable=False
+
+    serial_number: Mapped[str] = mapped_column(
+        String(100), unique=True, nullable=False
     )
+
     name: Mapped[str] = mapped_column(
         String(255), nullable=False
     )
+
+    model: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )
+
+    firmware_version: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )
+
+    ip_address: Mapped[str | None] = mapped_column(
+        String(45), nullable=True
+    )
+
     status: Mapped[str] = mapped_column(
         String(50), default="offline"
     )
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now
+    is_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False,
+        server_default="true"
     )
-    milesight_device_id: Mapped[str | None] = mapped_column(
-    String(100), unique=True, nullable=True
-    )
-    serial_number: Mapped[str | None] = mapped_column(
-        String(100), nullable=True
-    )
-    model: Mapped[str | None] = mapped_column(
-        String(50), nullable=True
-    )
-    firmware_version: Mapped[str | None] = mapped_column(
-        String(100), nullable=True
-    )
-    ip_address: Mapped[str | None] = mapped_column(
-        String(45), nullable=True
-    )
+
     last_seen_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    config_synced_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    is_enabled: Mapped[bool] = mapped_column(
-        Boolean,
-        nullable=False,
-        default=True,
-        server_default="true",
-    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now
+    )  
 
 
 class UserStoreAccess(Base):
@@ -304,11 +302,11 @@ class SensorDeviceInfo(Base):
 
     # Device configuration
     device_name = Column(String(255), nullable=True)
-    device_sn = Column(String, nullable=True)
-    ip_address = Column(String, nullable=True)
+    # device_sn = Column(String, nullable=True)
+    # ip_address = Column(String, nullable=True)
     device_mac = Column(String, nullable=True)
     device_wlan_mac = Column(String, nullable=True)
-    firmware_version = Column(String, nullable=True)
+    # firmware_version = Column(String, nullable=True)
     hardware_version = Column(String, nullable=True)
     tsl_version = Column(String, nullable=True)
     cus_site_id = Column(String, nullable=True)

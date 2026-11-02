@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import select
+from sqlalchemy import select , update
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Request, HTTPException
 from app.database import AsyncSessionLocal
@@ -279,22 +279,50 @@ async def sync_device_information(
         return False
 
     updated_at = datetime.now(timezone.utc)
-    statement = insert(SensorDeviceInfo).values(
-        sensor_id=sensor_id,
-        updated_at=updated_at,
-        **values,
-    )
-    statement = statement.on_conflict_do_update(
-        index_elements=[SensorDeviceInfo.sensor_id],
-        set_={**values, "updated_at": updated_at},
-    )
-    try:
+
+    # Store identity/network/firmware fields in the sensors table.
+    sensor_updates = {}
+    if "device_sn" in values:
+        sensor_updates["serial_number"] = values["device_sn"]
+    if "ip_address" in values:
+        sensor_updates["ip_address"] = values["ip_address"]
+    if "firmware_version" in values:
+        sensor_updates["firmware_version"] = values["firmware_version"]
+
+    if sensor_updates:
+        await db.execute(
+            update(Sensor)
+            .where(Sensor.id == sensor_id)
+            .values(**sensor_updates)
+        )
+
+    # Store only device-specific details in sensor_device_info.
+    info_values = {
+        key: value
+        for key, value in values.items()
+        if key not in {"device_sn", "ip_address", "firmware_version"}
+    }
+
+    if info_values:
+        statement = insert(SensorDeviceInfo).values(
+            sensor_id=sensor_id,
+            updated_at=updated_at,
+            **info_values,
+        )
+        statement = statement.on_conflict_do_update(
+            index_elements=[SensorDeviceInfo.sensor_id],
+            set_={**info_values, "updated_at": updated_at},
+        )
         await db.execute(statement)
+
+    try:
         await db.commit()
     except Exception:
         await db.rollback()
         raise
+
     return True
+
 
 
 def _build_readings_insert(
@@ -400,6 +428,27 @@ def _read_count(container: Any, key: str, *, suffix: str = "") -> int:
 
     return count
 
+
+def _read_capacity_count(container: dict[str, Any]) -> int | None:
+    value = container.get("capacity_counted")
+
+    if value is None or value == -1 or value == "-1":
+        return None
+
+    if isinstance(value, bool):
+        raise ValueError("Invalid VS125 capacity_counted")
+
+    try:
+        count = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Invalid VS125 capacity_counted") from exc
+
+    if count < 0:
+        raise ValueError("VS125 capacity_counted cannot be negative")
+
+    return count
+
+
 def _normalize_device_line(
     line: Any,
     *,
@@ -430,39 +479,86 @@ def _normalize_device_line(
 
     suffix = "_counted" if cumulative else ""
     count_source = total
+
+    individuals_in = _read_count(count_source, "in", suffix=suffix)
+    individuals_out = _read_count(count_source, "out", suffix=suffix)
+
+    male_in = _read_count(count_source, "male_in", suffix=suffix)
+    male_out = _read_count(count_source, "male_out", suffix=suffix)
+
+    female_in = _read_count(count_source, "female_in", suffix=suffix)
+    female_out = _read_count(count_source, "female_out", suffix=suffix)
+
+    # Assign unclassified individuals to female
+    female_in += max(0, (_read_count(total, "in", suffix=suffix)) - male_in - female_in)
+    female_out += max(0, (_read_count(total, "out", suffix=suffix))  - male_out - female_out)
+
     return {
         "sensor_id": sensor_id,
         "line_id": line_id,
         "line_name": line_name.strip(),
         "line_uuid": line_uuid.strip(),
         # Choose count source based on whether this is cumulative total or periodic interval
-        "individuals_in": _read_count(count_source, "in", suffix=suffix),
-        "individuals_out": _read_count(count_source, "out", suffix=suffix),
-        "male_in": _read_count(count_source, "male_in", suffix=suffix),
-        "male_out": _read_count(count_source, "male_out", suffix=suffix),
-        "female_in": _read_count(count_source, "female_in", suffix=suffix),
-        "female_out": _read_count(count_source, "female_out", suffix=suffix),
-        "group_in": _read_count(group, "in", suffix=suffix) if cumulative else 0,
-        "group_out": _read_count(group, "out", suffix=suffix) if cumulative else 0,
+        "individuals_in": individuals_in,
+        "individuals_out": individuals_out,
+        "male_in": male_in,
+        "male_out": male_out,
+        "female_in": female_in,
+        "female_out": female_out,
+        "group_in": _read_count(group, "in", suffix=suffix),
+        "group_out": _read_count(group, "out", suffix=suffix),
         "children": children,
         "period_start_at": period_start,
         "recorded_at": period_end,
         "received_at": received_at,
         "is_retransmission": is_retransmission,
         "capacity_counted": (
-            _read_count(total, "capacity", suffix=suffix)
-            if cumulative and "capacity_counted" in total
+            _read_capacity_count(total)
+            if cumulative
             else None
         ),
         "raw_data": line,
     }
 
 
+def _has_nonzero_footfall(
+    periodic_values: list[dict[str, Any]],
+    total_values: list[dict[str, Any]],
+) -> bool:
+    count_fields = (
+        "individuals_in",
+        "individuals_out",
+        "male_in",
+        "male_out",
+        "female_in",
+        "female_out",
+        "group_in",
+        "group_out",
+    )
+
+    for row in periodic_values + total_values:
+        for field in count_fields:
+            value = row.get(field, 0)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                if value > 0:
+                    return True
+
+        # Check child counts as well.
+        children = row.get("children", {})
+        if isinstance(children, dict):
+            for value in children.values():
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    if value > 0:
+                        return True
+
+    return False
+
+
 async def ingest_device_report(
     db: AsyncSession,
     sensor_id: int,
     data: dict[str, Any],
-) -> dict[str, int]:
+) -> dict[str, Any]:
     """
     Persist the actual VS125 HTTP report:
       - line_periodic_data -> interval readings for footfall analytics
@@ -520,6 +616,42 @@ async def ingest_device_report(
         )
         for line in total_data
     ]
+        # Reject reports containing no actual footfall.
+        # Keep only lines that recorded actual footfall in this interval.
+    active_line_uuids = {
+        row["line_uuid"]
+        for row in periodic_values
+        if _has_nonzero_footfall([row], [])
+    }
+
+    periodic_lines_received = len(periodic_values)
+    total_lines_received = len(total_values)
+
+    # Filter periodic readings independently for each line.
+    periodic_values = [
+        row for row in periodic_values
+        if row["line_uuid"] in active_line_uuids
+    ]
+
+    # Save cumulative snapshots only for lines with periodic footfall.
+    total_values = [
+        row for row in total_values
+        if row["line_uuid"] in active_line_uuids
+    ]
+
+    # If no line recorded footfall, acknowledge without saving readings.
+    if not periodic_values:
+        return {
+            "status": "ignored",
+            "reason": "No footfall detected in any line",
+            "periodic_records_saved": 0,
+            "total_snapshots_upserted": 0,
+            "periodic_lines_received": periodic_lines_received,
+            "total_lines_received": total_lines_received,
+            "active_lines": 0,
+            "ignored_lines": periodic_lines_received,
+        }
+
 
     # Deterministic event key: the VS125 report window is stable across
     # retransmissions, unlike a random key generated by the receiving server.
@@ -585,9 +717,12 @@ async def ingest_device_report(
         totals_upserted = result.rowcount or 0
 
     return {
+        "status": "saved",
         "periodic_records_saved": periodic_saved,
         "total_snapshots_upserted": totals_upserted,
-        "periodic_lines_received": len(periodic_values),
-        "total_lines_received": len(total_values),
+        "periodic_lines_received": periodic_lines_received,
+        "total_lines_received": total_lines_received,
+        "active_lines": len(active_line_uuids),
+        "ignored_lines": periodic_lines_received - len(active_line_uuids),
     }
 

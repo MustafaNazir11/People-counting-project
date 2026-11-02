@@ -222,11 +222,8 @@ async def vs125_device_webhook(request: Request):
             if isinstance(device, dict):
                 field_map = {
                     "device_name": "device_name",
-                    "device_sn": "device_sn",
-                    "ip_address": "ip_address",
                     "device_mac": "device_mac",
                     "wlan_mac": "device_wlan_mac",
-                    "firmware_version": "firmware_version",
                     "hardware_version": "hardware_version",
                     "tsl_version": "tsl_version",
                     "cus_site_id": "cus_site_id",
@@ -324,18 +321,27 @@ async def vs125_device_webhook(request: Request):
             detail="Could not store VS125 webhook data",
         ) from exc
 
-    logger.info(
-        "VS125 report processed sensor_id=%s periodic_saved=%s total_snapshots=%s",
-        sensor_id,
-        counts["periodic_records_saved"],
-        counts["total_snapshots_upserted"],
-    )
+    report_status = counts.get("status", "saved")
+
+    if report_status == "ignored":
+        logger.info(
+            "VS125 report ignored sensor_id=%s reason=%s",
+            sensor_id,
+            counts.get("reason"),
+        )
+    else:
+        logger.info(
+            "VS125 report saved sensor_id=%s periodic_saved=%s total_snapshots=%s",
+            sensor_id,
+            counts["periodic_records_saved"],
+            counts["total_snapshots_upserted"],
+        )
+
     return {
-        "status": "saved",
+        **counts,
         "sensor_id": sensor_id,
         "device_info_saved": device_saved,
         "configuration_saved": config_saved,
-        **counts,
     }
 
 

@@ -1,21 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Activity,
   AlertCircle,
   ArrowDownRight,
   ArrowUpRight,
+  Baby,
+  BarChart2,
   CalendarDays,
-  Camera,
+  Mars,
   RefreshCw,
+  Store,
   Users,
+  Venus,
 } from 'lucide-react'
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -24,14 +28,20 @@ import {
   YAxis,
 } from 'recharts'
 import { apiFetch } from '../api'
+import useSensors from '../hooks/useSensors'
+import useStores from '../hooks/useStores'
 
-const COLORS = ['#0f766e', '#2563eb', '#7c3aed', '#ea580c']
+const ENTRY_COLOR = '#0070f3'
+const EXIT_COLOR = '#7928ca'
+const MALE_COLOR = '#0070f3'
+const FEMALE_COLOR = '#eb367f'
+const CHILD_COLOR = '#f5a623'
 
 function inputDate(date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 function defaultRange() {
@@ -42,19 +52,11 @@ function defaultRange() {
 }
 
 function dateLabel(value) {
-  const [year, month, day] = value.split('-').map(Number)
-  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+  const [y, m, d] = value.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
   })
-}
-
-function countIn(row) {
-  return Number(row.individuals_in ?? row.in ?? 0)
-}
-
-function countOut(row) {
-  return Number(row.individuals_out ?? row.out ?? 0)
 }
 
 function timestampOf(row) {
@@ -69,56 +71,488 @@ function dateKeyOf(row) {
 function getPreviousRange({ startDate, endDate }) {
   const start = new Date(`${startDate}T00:00:00`)
   const end = new Date(`${endDate}T00:00:00`)
-  const periodLength = Math.round((end - start) / 86400000) + 1
+  const length = Math.round((end - start) / 86400000) + 1
   const previousEnd = new Date(start)
   previousEnd.setDate(previousEnd.getDate() - 1)
   const previousStart = new Date(previousEnd)
-  previousStart.setDate(previousStart.getDate() - periodLength + 1)
-
-  return {
-    startDate: inputDate(previousStart),
-    endDate: inputDate(previousEnd),
-  }
+  previousStart.setDate(previousStart.getDate() - length + 1)
+  return { startDate: inputDate(previousStart), endDate: inputDate(previousEnd) }
 }
 
-function MetricCard({ label, value, detail, icon: Icon, trend }) {
+const PRESETS = [
+  { label: 'Today', range: () => {
+    const today = inputDate(new Date())
+    return { startDate: today, endDate: today }
+  } },
+  { label: 'Yesterday', range: () => {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const date = inputDate(yesterday)
+    return { startDate: date, endDate: date }
+  } },
+  { label: 'Last 7 days', range: () => {
+    const end = new Date()
+    const start = new Date(end)
+    start.setDate(start.getDate() - 6)
+    return { startDate: inputDate(start), endDate: inputDate(end) }
+  } },
+  { label: 'Last 30 days', range: () => {
+    const end = new Date()
+    const start = new Date(end)
+    start.setDate(start.getDate() - 29)
+    return { startDate: inputDate(start), endDate: inputDate(end) }
+  } },
+  { label: 'This month', range: () => {
+    const end = new Date()
+    return {
+      startDate: inputDate(new Date(end.getFullYear(), end.getMonth(), 1)),
+      endDate: inputDate(end),
+    }
+  } },
+]
+
+const tooltipStyle = {
+  borderRadius: 12,
+  border: '1px solid #ebebeb',
+  boxShadow: '0px 2px 2px rgba(0,0,0,0.04), 0px 8px 16px -4px rgba(0,0,0,0.08)',
+  fontSize: 13,
+  color: '#171717',
+  fontFamily: 'Geist, Inter, Arial, sans-serif',
+}
+
+function lineKey(row) {
+  return `${row.sensor_id}:${row.line_id}:${row.line_name || ''}`
+}
+
+function TrendBadge({ value }) {
+  if (value === undefined) return null
+  const positive = value >= 0
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-slate-500">{label}</p>
-        <span className="rounded-xl bg-slate-50 p-2.5 text-slate-500"><Icon size={19} /></span>
-      </div>
-      <p className="mt-4 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
-      <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
-        {trend !== undefined && (
-          <span className={`inline-flex items-center font-semibold ${trend >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-            {trend >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}{Math.abs(trend)}%
-          </span>
-        )}
-        <span>{detail}</span>
-      </div>
-    </article>
+    <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium ${
+      positive ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+    }`}>
+      {positive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
+      {Math.abs(value)}%
+    </span>
   )
 }
 
-function ChartPanel({ title, detail, children, className = '' }) {
+function Metric({ icon: Icon, label, value, color, loading, unavailable = false }) {
   return (
-    <section className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6 ${className}`}>
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-semibold text-slate-900">{title}</h2>
-          <p className="mt-1 text-sm text-slate-500">{detail}</p>
-        </div>
+    <div className="min-w-0">
+      <div className="flex items-center gap-2">
+        <Icon size={18} strokeWidth={1.8} style={{ color }} aria-hidden="true" />
+        <p className="truncate text-sm font-medium text-[#4d4d4d]">{label}</p>
       </div>
-      {children}
+      <p className={`mt-1.5 pl-[26px] font-semibold tabular-nums tracking-tight text-[#171717] ${
+        unavailable ? 'text-sm' : 'text-xl'
+      }`}>
+        {loading ? '—' : unavailable ? 'Unavailable' : Number(value).toLocaleString()}
+      </p>
+    </div>
+  )
+}
+
+function TrafficCards({ loading, totals, previousTotals }) {
+  const growthIn = previousTotals.totalIn
+    ? Math.round(((totals.totalIn - previousTotals.totalIn) / previousTotals.totalIn) * 100)
+    : undefined
+  const growthOut = previousTotals.totalOut
+    ? Math.round(((totals.totalOut - previousTotals.totalOut) / previousTotals.totalOut) * 100)
+    : undefined
+  const shown = (value) => loading ? '—' : value.toLocaleString()
+
+  const cardClass = 'relative flex h-full min-h-[300px] flex-col overflow-hidden rounded-2xl border border-[#ebebeb] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6'
+
+  return (
+    <section aria-label="Visitor totals" className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <article className={cardClass}>
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#007cf0] to-[#00dfd8]" />
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight text-[#171717]">IN</h2>
+            <p className="mt-1 text-sm text-[#8f8f8f]">Total Entries</p>
+          </div>
+          <TrendBadge value={growthIn} />
+        </div>
+        <p className="mt-4 text-5xl font-semibold leading-none tracking-[-1.8px] text-[#171717] tabular-nums">
+          {shown(totals.totalIn)}
+        </p>
+        <div className="mt-auto grid grid-cols-3 gap-x-3 border-t border-[#ebebeb] pt-5">
+          <Metric icon={Mars} label="Male" value={totals.maleIn} loading={loading} color={MALE_COLOR} />
+          <Metric icon={Venus} label="Female" value={totals.femaleIn} loading={loading} color={FEMALE_COLOR} />
+          <Metric icon={Baby} label="Children" loading={loading} unavailable color={CHILD_COLOR} />
+        </div>
+      </article>
+
+      <article className={cardClass}>
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#7928ca] to-[#ff0080]" />
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight text-[#171717]">OUT</h2>
+            <p className="mt-1 text-sm text-[#8f8f8f]">Total Exits</p>
+          </div>
+          <TrendBadge value={growthOut} />
+        </div>
+        <p className="mt-4 text-5xl font-semibold leading-none tracking-[-1.8px] text-[#171717] tabular-nums">
+          {shown(totals.totalOut)}
+        </p>
+        <div className="mt-auto grid grid-cols-3 gap-x-3 border-t border-[#ebebeb] pt-5">
+          <Metric icon={Mars} label="Male" value={totals.maleOut} loading={loading} color={MALE_COLOR} />
+          <Metric icon={Venus} label="Female" value={totals.femaleOut} loading={loading} color={FEMALE_COLOR} />
+          <Metric icon={Baby} label="Children" loading={loading} unavailable color={CHILD_COLOR} />
+        </div>
+      </article>
+
+      <article className={`${cardClass} md:col-span-2 xl:col-span-1`}>
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#ff4d4d] to-[#f9cb28]" />
+        <div className="flex items-center gap-2">
+          <Users size={20} color="#f5a623" aria-hidden="true" />
+          <h2 className="text-xl font-semibold tracking-tight text-[#171717]">GROUP</h2>
+        </div>
+        <p className="mt-1 text-sm text-[#8f8f8f]">Groups counted separately</p>
+        <div className="mt-6 grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-4xl font-semibold leading-none tracking-tight text-[#171717] tabular-nums">
+              {shown(totals.groupIn)}
+            </p>
+            <p className="mt-2 text-sm text-[#8f8f8f]">Group IN</p>
+          </div>
+          <div>
+            <p className="text-4xl font-semibold leading-none tracking-tight text-[#171717] tabular-nums">
+              {shown(totals.groupOut)}
+            </p>
+            <p className="mt-2 text-sm text-[#8f8f8f]">Group OUT</p>
+          </div>
+        </div>
+        <p className="mt-auto border-t border-[#ebebeb] pt-5 text-sm leading-relaxed text-[#8f8f8f]">
+          Group counts are reported independently from individual visitors.
+        </p>
+      </article>
     </section>
   )
 }
 
-const tooltipStyle = {
-  borderRadius: 12,
-  border: '1px solid #e2e8f0',
-  boxShadow: '0 8px 24px rgba(15, 23, 42, 0.08)',
+function SectionHeading({ title, description, action }) {
+  return (
+    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight text-[#171717]">{title}</h2>
+        <p className="mt-1 text-sm text-[#8f8f8f]">{description}</p>
+      </div>
+      {action}
+    </div>
+  )
+}
+
+function GenderDistribution({ totals, loading }) {
+  const malePercent = totals.totalIn
+    ? (totals.maleIn / totals.totalIn) * 100
+    : 0
+  const femalePercent = totals.totalIn
+    ? (totals.femaleIn / totals.totalIn) * 100
+    : 0
+  const genderData = [
+    { name: 'Male', value: totals.maleIn, color: MALE_COLOR },
+    { name: 'Female', value: totals.femaleIn, color: FEMALE_COLOR },
+  ]
+
+  return (
+    <section className="rounded-2xl border border-[#ebebeb] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6">
+      <SectionHeading
+        title="Gender Distribution"
+        description="Male vs Female visitors — visitor count and percentage of total entries."
+      />
+      {totals.totalIn > 0 ? (
+        <div className="grid items-center gap-4 sm:grid-cols-[minmax(200px,0.9fr)_1.1fr]">
+          <div className="h-56 min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={genderData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={62}
+                  outerRadius={88}
+                  paddingAngle={3}
+                  stroke="white"
+                  strokeWidth={3}
+                >
+                  {genderData.map((item) => <Cell key={item.name} fill={item.color} />)}
+                </Pie>
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  formatter={(value, name) => [Number(value).toLocaleString(), `${name} visitors`]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-4">
+            {[
+              { label: 'Male', value: totals.maleIn, percent: malePercent, icon: Mars, color: MALE_COLOR },
+              { label: 'Female', value: totals.femaleIn, percent: femalePercent, icon: Venus, color: FEMALE_COLOR },
+            ].map(({ label, value, percent, icon: Icon, color }) => (
+              <div key={label} className="rounded-xl border border-[#f2f2f2] bg-[#fafafa] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-2 text-sm font-medium text-[#4d4d4d]">
+                    <Icon size={18} color={color} aria-hidden="true" />
+                    {label}
+                  </span>
+                  <span className="text-sm text-[#8f8f8f]">{percent.toFixed(1)}%</span>
+                </div>
+                <p className="mt-2 text-2xl font-semibold tabular-nums text-[#171717]">
+                  {value.toLocaleString()}
+                  <span className="ml-2 text-sm font-normal text-[#8f8f8f]">visitors</span>
+                </p>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#ebebeb]">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${Math.min(100, percent)}%`, backgroundColor: color }}
+                  />
+                </div>
+              </div>
+            ))}
+            <p className="text-xs text-[#8f8f8f]">
+              Percentages use corrected aggregated gender counts divided by total entries.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex h-56 items-center justify-center rounded-xl border border-dashed border-[#ebebeb] text-sm text-[#8f8f8f]">
+          {loading ? 'Loading gender distribution…' : 'No entries are available for this date range.'}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function ChildrenAnalytics({ loading }) {
+  return (
+    <section className="rounded-2xl border border-[#ebebeb] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6">
+      <SectionHeading
+        title="Children Analytics"
+        description="Children are kept separate from male and female visitor counts."
+      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        {[
+          { label: 'Children Entries', icon: ArrowDownRight },
+          { label: 'Children Exits', icon: ArrowUpRight },
+        ].map(({ label, icon: Icon }) => (
+          <div key={label} className="rounded-xl border border-[#f2f2f2] bg-[#fafafa] p-4">
+            <div className="flex items-center gap-2">
+              <Baby size={19} color={CHILD_COLOR} aria-hidden="true" />
+              <h3 className="text-sm font-medium text-[#4d4d4d]">{label}</h3>
+            </div>
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <span className="text-2xl font-semibold text-[#8f8f8f]">
+                {loading ? '—' : 'Unavailable'}
+              </span>
+              <Icon size={18} color="#a1a1a1" aria-hidden="true" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-800">
+        The sensor stores children data as an untyped JSON object, but this integration does not define verified numeric entry and exit fields. Counts and trends are withheld to avoid reporting incorrect values.
+      </p>
+    </section>
+  )
+}
+
+function formatUpdatedAt(value) {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleString()
+}
+
+function Occupancy({ loading, error, occupancy, updatedAt }) {
+  return (
+    <section className="rounded-2xl border border-[#d3e5ff] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6">
+      <SectionHeading
+        title="Current Store Occupancy"
+        description="Current count from the latest VS125 cumulative line snapshots."
+        action={updatedAt && (
+          <span className="text-xs text-[#8f8f8f]">Sensor snapshot · {formatUpdatedAt(updatedAt)}</span>
+        )}
+      />
+      {error && (
+        <div role="alert" className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <AlertCircle size={16} /> {error}
+        </div>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="rounded-xl bg-[#f5f9ff] p-4 sm:col-span-2 xl:col-span-1">
+          <div className="flex items-center gap-2 text-sm font-medium text-[#4d4d4d]">
+            <Users size={19} color={ENTRY_COLOR} aria-hidden="true" />
+            Current people inside
+          </div>
+          <p className="mt-3 text-3xl font-semibold tracking-tight text-[#171717] tabular-nums">
+            {loading ? '—' : occupancy.total === null ? 'Unavailable' : occupancy.total.toLocaleString()}
+          </p>
+          <p className="mt-1 text-xs text-[#8f8f8f]">Sensor-reported occupancy</p>
+        </div>
+        {[
+          { label: 'Male', icon: Mars, color: MALE_COLOR },
+          { label: 'Female', icon: Venus, color: FEMALE_COLOR },
+          { label: 'Children', icon: Baby, color: CHILD_COLOR },
+          { label: 'Groups', icon: Users, color: '#f5a623' },
+        ].map(({ label, icon: Icon, color }) => (
+          <div key={label} className="rounded-xl border border-[#f2f2f2] p-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-[#4d4d4d]">
+              <Icon size={18} color={color} aria-hidden="true" />
+              {label}
+            </div>
+            <p className="mt-3 text-lg font-semibold text-[#8f8f8f]">
+              {loading ? '—' : 'Unavailable'}
+            </p>
+            <p className="mt-1 text-xs text-[#8f8f8f]">Not reported as current occupancy</p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-xs leading-relaxed text-[#8f8f8f]">
+        Gender, children, and group occupancy are not inferred from historical entries and exits.
+      </p>
+    </section>
+  )
+}
+
+function ChartToggle({ value, onChange }) {
+  return (
+    <div className="flex gap-0.5 rounded-lg border border-[#ebebeb] bg-[#fafafa] p-0.5">
+      {[
+        { key: 'bar', icon: <BarChart2 size={14} />, label: 'Bar' },
+        { key: 'line', icon: <TrendingIcon />, label: 'Line' },
+      ].map(({ key, icon, label }) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onChange(key)}
+          aria-pressed={value === key}
+          className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+            value === key
+              ? 'border-[#ebebeb] bg-white text-[#171717] shadow-[0px_1px_1px_rgba(0,0,0,0.04)]'
+              : 'border-transparent text-[#8f8f8f]'
+          }`}
+        >
+          {icon}{label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function TrendingIcon() {
+  return <ArrowUpRight size={14} />
+}
+
+function DailyTrafficChart({ data, loading, startDate, endDate }) {
+  const [chartType, setChartType] = useState('bar')
+  const tickFormatter = (value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
+
+  return (
+    <section className="rounded-2xl border border-[#ebebeb] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6">
+      <SectionHeading
+        title="Daily Traffic"
+        description={`Entries and exits by day · ${dateLabel(startDate)} – ${dateLabel(endDate)}`}
+        action={<ChartToggle value={chartType} onChange={setChartType} />}
+      />
+      {!loading && data.length > 0 ? (
+        <div className="h-[360px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            {chartType === 'bar' ? (
+              <BarChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 20 }} barGap={3}>
+                <CartesianGrid stroke="#ebebeb" strokeDasharray="4 4" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: '#8f8f8f', fontSize: 11 }}
+                  interval="preserveStartEnd"
+                  label={{ value: 'Days', position: 'insideBottom', offset: -12, fill: '#8f8f8f', fontSize: 12 }}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: '#8f8f8f', fontSize: 11 }}
+                  tickFormatter={tickFormatter}
+                  width={48}
+                  allowDecimals={false}
+                  label={{ value: 'Visitor Count', angle: -90, position: 'insideLeft', fill: '#8f8f8f', fontSize: 12 }}
+                />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  labelStyle={{ color: '#4d4d4d', fontWeight: 600, marginBottom: 4 }}
+                  formatter={(value, name) => [Number(value).toLocaleString(), name === 'entries' ? 'Entries' : 'Exits']}
+                />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  formatter={(name) => name === 'entries' ? 'Entries' : 'Exits'}
+                  wrapperStyle={{ fontSize: 12, color: '#8f8f8f', paddingTop: 12 }}
+                />
+                <Bar dataKey="entries" name="entries" fill={ENTRY_COLOR} radius={[4, 4, 0, 0]} maxBarSize={24} />
+                <Bar dataKey="exits" name="exits" fill={EXIT_COLOR} radius={[4, 4, 0, 0]} maxBarSize={24} />
+              </BarChart>
+            ) : (
+              <LineChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 20 }}>
+                <CartesianGrid stroke="#ebebeb" strokeDasharray="4 4" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: '#8f8f8f', fontSize: 11 }}
+                  interval="preserveStartEnd"
+                  label={{ value: 'Days', position: 'insideBottom', offset: -12, fill: '#8f8f8f', fontSize: 12 }}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: '#8f8f8f', fontSize: 11 }}
+                  tickFormatter={tickFormatter}
+                  width={48}
+                  allowDecimals={false}
+                  label={{ value: 'Visitor Count', angle: -90, position: 'insideLeft', fill: '#8f8f8f', fontSize: 12 }}
+                />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  labelStyle={{ color: '#4d4d4d', fontWeight: 600, marginBottom: 4 }}
+                  formatter={(value, name) => [Number(value).toLocaleString(), name === 'entries' ? 'Entries' : 'Exits']}
+                />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  formatter={(name) => name === 'entries' ? 'Entries' : 'Exits'}
+                  wrapperStyle={{ fontSize: 12, color: '#8f8f8f', paddingTop: 12 }}
+                />
+                <Line type="monotone" dataKey="entries" name="entries" stroke={ENTRY_COLOR} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                <Line type="monotone" dataKey="exits" name="exits" stroke={EXIT_COLOR} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+              </LineChart>
+            )}
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed border-[#ebebeb] text-sm text-[#8f8f8f]">
+          {loading ? 'Loading sensor readings…' : 'No dates are available to display.'}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function FilterSelect({ label, value, onChange, children, disabled = false }) {
+  return (
+    <label className="grid min-w-0 gap-1.5 text-xs font-medium text-[#8f8f8f]">
+      {label}
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        className="h-10 min-w-0 rounded-md border border-[#ebebeb] bg-white px-3 text-sm font-normal text-[#171717] outline-none focus:border-[#171717] disabled:cursor-not-allowed disabled:bg-[#fafafa] disabled:text-[#a1a1a1]"
+      >
+        {children}
+      </select>
+    </label>
+  )
 }
 
 export default function Analytics({ token }) {
@@ -129,33 +563,56 @@ export default function Analytics({ token }) {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
+  const [totalsSnapshots, setTotalsSnapshots] = useState([])
+  const [totalsLoading, setTotalsLoading] = useState(true)
+  const [totalsError, setTotalsError] = useState('')
+  const [snapshotsComplete, setSnapshotsComplete] = useState(true)
+  const [storeId, setStoreId] = useState('all')
+  const [sensorId, setSensorId] = useState('all')
+  const [selectedLine, setSelectedLine] = useState('all')
+  const { stores, loading: storesLoading, error: storesError } = useStores(token)
+  const { sensors, loading: sensorsLoading, error: sensorsError } = useSensors(token)
   const previousRange = useMemo(() => getPreviousRange(dateRange), [dateRange])
 
   useEffect(() => {
     const controller = new AbortController()
-    const params = new URLSearchParams({
-      start_date: previousRange.startDate,
-      end_date: dateRange.endDate,
-    })
 
     async function loadReadings() {
       setLoading(true)
       setLoadError('')
-
       try {
-        const data = await apiFetch(
-          `/sensors/vs125/readings?${params}`,
-          token,
-          { signal: controller.signal },
-        )
-        const rows = Array.isArray(data) ? data : data?.readings
-        if (!Array.isArray(rows)) {
-          throw new Error('The server returned an unexpected readings response.')
+        const allRows = []
+        let offset = 0
+        let hasMore = true
+        while (hasMore) {
+          const params = new URLSearchParams({
+            start_date: previousRange.startDate,
+            end_date: dateRange.endDate,
+            limit: '1000',
+            offset: String(offset),
+          })
+          const data = await apiFetch(
+            `/sensors/vs125/readings?${params}`,
+            token,
+            { signal: controller.signal },
+          )
+          if (Array.isArray(data)) {
+            allRows.push(...data)
+            hasMore = false
+          } else if (data && Array.isArray(data.readings) && typeof data.has_more === 'boolean') {
+            allRows.push(...data.readings)
+            hasMore = data.has_more === true
+            if (hasMore && data.readings.length === 0) {
+              throw new Error('The server indicated more readings but returned an empty page.')
+            }
+            offset += data.readings.length
+          } else {
+            throw new Error('The server returned an unexpected readings response.')
+          }
         }
-
-        setReadings(rows)
+        if (!controller.signal.aborted) setReadings(allRows)
       } catch (error) {
-        if (error.name !== 'AbortError') {
+        if (error.name !== 'AbortError' && !controller.signal.aborted) {
           setLoadError(error.message || 'Could not load sensor readings.')
         }
       } finally {
@@ -167,94 +624,196 @@ export default function Analytics({ token }) {
     return () => controller.abort()
   }, [token, dateRange, previousRange, refreshKey])
 
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadTotals() {
+      setTotalsLoading(true)
+      setTotalsError('')
+      try {
+        const data = await apiFetch('/sensors/vs125/totals?limit=2000', token, {
+          signal: controller.signal,
+        })
+        if (!data || !Array.isArray(data.snapshots) || !Number.isInteger(data.count)) {
+          throw new Error('The server returned an unexpected sensor totals response.')
+        }
+        if (!controller.signal.aborted) {
+          setTotalsSnapshots(data.snapshots)
+          setSnapshotsComplete(data.count === data.snapshots.length)
+          setTotalsError('')
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError' && !controller.signal.aborted) {
+          setTotalsError(error.message || 'Could not load current sensor totals.')
+          setTotalsSnapshots([])
+          setSnapshotsComplete(false)
+        }
+      } finally {
+        if (!controller.signal.aborted) setTotalsLoading(false)
+      }
+    }
+
+    loadTotals()
+    return () => controller.abort()
+  }, [token, refreshKey])
+
+  useEffect(() => {
+    const intervalId = setInterval(() => setRefreshKey((key) => key + 1), 5 * 60 * 1000)
+    return () => clearInterval(intervalId)
+  }, [])
+
+  const availableSensors = useMemo(
+    () => storeId === 'all'
+      ? sensors
+      : sensors.filter((sensor) => String(sensor.store_id) === storeId),
+    [sensors, storeId],
+  )
+
+  const lineOptions = useMemo(() => {
+    const scoped = [...readings, ...totalsSnapshots].filter((row) =>
+      (storeId === 'all' || String(row.store_id) === storeId) &&
+      (sensorId === 'all' || String(row.sensor_id) === sensorId),
+    )
+    const lines = new Map()
+    for (const row of scoped) {
+      const key = lineKey(row)
+      if (!lines.has(key)) {
+        lines.set(key, {
+          key,
+          name: row.line_name || `Line ${row.line_id}`,
+          sensor: sensors.find((item) => String(item.id) === String(row.sensor_id))?.name || `Sensor ${row.sensor_id}`,
+        })
+      }
+    }
+    return [...lines.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [readings, totalsSnapshots, sensors, storeId, sensorId])
+
+  const filteredReadings = useMemo(
+    () => readings.filter((row) =>
+      (storeId === 'all' || String(row.store_id) === storeId) &&
+      (sensorId === 'all' || String(row.sensor_id) === sensorId) &&
+      (selectedLine === 'all' || lineKey(row) === selectedLine),
+    ),
+    [readings, storeId, sensorId, selectedLine],
+  )
+
   const selectedReadings = useMemo(
-    () => readings.filter((row) => {
+    () => filteredReadings.filter((row) => {
       const date = dateKeyOf(row)
       return date && date >= dateRange.startDate && date <= dateRange.endDate
     }),
-    [readings, dateRange],
+    [filteredReadings, dateRange],
   )
+
   const previousReadings = useMemo(
-    () => readings.filter((row) => {
+    () => filteredReadings.filter((row) => {
       const date = dateKeyOf(row)
       return date && date >= previousRange.startDate && date <= previousRange.endDate
     }),
-    [readings, previousRange],
+    [filteredReadings, previousRange],
   )
-  const dailyTrend = useMemo(() => {
+
+  const totals = useMemo(() => {
+    let individualIn = 0
+    let maleIn = 0
+    let femaleIn = 0
+    let individualOut = 0
+    let maleOut = 0
+    let femaleOut = 0
+    let groupIn = 0
+    let groupOut = 0
+
+    for (const row of selectedReadings) {
+      individualIn += Number(row.individuals_in ?? 0)
+      maleIn += Number(row.male_in ?? 0)
+      femaleIn += Number(row.female_in ?? 0)
+      individualOut += Number(row.individuals_out ?? 0)
+      maleOut += Number(row.male_out ?? 0)
+      femaleOut += Number(row.female_out ?? 0)
+      groupIn += Number(row.group_in ?? 0)
+      groupOut += Number(row.group_out ?? 0)
+    }
+
+    return {
+      totalIn: individualIn,
+      maleIn,
+      femaleIn: femaleIn + Math.max(0, individualIn - maleIn - femaleIn),
+      totalOut: individualOut,
+      maleOut,
+      femaleOut: femaleOut + Math.max(0, individualOut - maleOut - femaleOut),
+      groupIn,
+      groupOut,
+    }
+  }, [selectedReadings])
+
+  const previousTotals = useMemo(() => {
+    return previousReadings.reduce((result, row) => ({
+      totalIn: result.totalIn + Number(row.individuals_in ?? 0),
+      totalOut: result.totalOut + Number(row.individuals_out ?? 0),
+    }), { totalIn: 0, totalOut: 0 })
+  }, [previousReadings])
+
+  const dailyData = useMemo(() => {
     const byDate = new Map()
     for (const row of selectedReadings) {
       const date = dateKeyOf(row)
-      byDate.set(date, (byDate.get(date) || 0) + countIn(row))
+      if (!date) continue
+      const current = byDate.get(date) ?? { entries: 0, exits: 0 }
+      current.entries += Number(row.individuals_in ?? 0)
+      current.exits += Number(row.individuals_out ?? 0)
+      byDate.set(date, current)
     }
 
     const result = []
     const day = new Date(`${dateRange.startDate}T00:00:00`)
-    const lastDay = new Date(`${dateRange.endDate}T00:00:00`)
-    while (day <= lastDay) {
+    const last = new Date(`${dateRange.endDate}T00:00:00`)
+    while (day <= last) {
       const date = inputDate(day)
       result.push({
         date,
         label: dateLabel(date),
-        visitors: byDate.get(date) || 0,
+        ...(byDate.get(date) ?? { entries: 0, exits: 0 }),
       })
       day.setDate(day.getDate() + 1)
     }
     return result
   }, [selectedReadings, dateRange])
-  const totalVisitors = selectedReadings.reduce((sum, row) => sum + countIn(row), 0)
-  const totalExits = selectedReadings.reduce((sum, row) => sum + countOut(row), 0)
-  const averageVisitors = dailyTrend.length ? Math.round(totalVisitors / dailyTrend.length) : 0
-  const previousVisitors = previousReadings.reduce((sum, row) => sum + countIn(row), 0)
-  const growth = previousVisitors
-    ? Math.round(((totalVisitors - previousVisitors) / previousVisitors) * 100)
-    : undefined
 
-  const storeStats = useMemo(() => {
-    const stores = new Map()
-    for (const row of selectedReadings) {
-      const key = row.store_id ?? row.store_name ?? 'unknown'
-      if (!stores.has(key)) {
-        stores.set(key, {
-          id: key,
-          name: row.store_name || `Store ${key}`,
-          visitors: 0,
-          sensors: new Set(),
-        })
-      }
-      const store = stores.get(key)
-      store.visitors += countIn(row)
-      if (row.sensor_id != null) store.sensors.add(row.sensor_id)
-    }
-    return [...stores.values()]
-      .map((store) => ({ ...store, sensors: store.sensors.size }))
-      .sort((a, b) => b.visitors - a.visitors)
-  }, [selectedReadings])
-
-  const hourlyActivity = useMemo(() => {
-    const byHour = new Map()
-    for (const row of selectedReadings) {
-      const timestamp = timestampOf(row)
-      if (!timestamp) continue
-      const hour = new Date(timestamp).getHours()
-      byHour.set(hour, (byHour.get(hour) || 0) + countIn(row))
-    }
-    return [...byHour.entries()]
-      .sort(([hourA], [hourB]) => hourA - hourB)
-      .map(([hour, visitors]) => ({
-        hour: new Date(2000, 0, 1, hour).toLocaleTimeString(undefined, {
-          hour: 'numeric',
-        }),
-        visitors,
-      }))
-  }, [selectedReadings])
-  const peakHour = hourlyActivity.reduce(
-    (peak, item) => item.visitors > peak.visitors ? item : peak,
-    { hour: '--', visitors: 0 },
+  const filteredSnapshots = useMemo(
+    () => totalsSnapshots.filter((snapshot) =>
+      (storeId === 'all' || String(snapshot.store_id) === storeId) &&
+      (sensorId === 'all' || String(snapshot.sensor_id) === sensorId) &&
+      (selectedLine === 'all' || lineKey(snapshot) === selectedLine),
+    ),
+    [totalsSnapshots, storeId, sensorId, selectedLine],
   )
-  const sensorsTracked = new Set(
-    selectedReadings.map((row) => row.sensor_id).filter((id) => id != null),
-  ).size
+
+  const occupancy = useMemo(() => {
+    if (!snapshotsComplete || filteredSnapshots.length === 0) return { total: null, updatedAt: null }
+    const validSnapshots = filteredSnapshots.filter((snapshot) =>
+      Number.isInteger(snapshot.capacity_counted) && snapshot.capacity_counted >= 0,
+    )
+    if (validSnapshots.length !== filteredSnapshots.length) return { total: null, updatedAt: null }
+    return {
+      total: validSnapshots.reduce((sum, snapshot) => sum + snapshot.capacity_counted, 0),
+      updatedAt: filteredSnapshots.reduce((latest, snapshot) => {
+        const timestamp = snapshot.recorded_at || snapshot.received_at
+        return timestamp && (!latest || timestamp > latest) ? timestamp : latest
+      }, null),
+    }
+  }, [filteredSnapshots, snapshotsComplete])
+
+  const selectedSensors = availableSensors.filter(
+    (sensor) => sensorId === 'all' || String(sensor.id) === sensorId,
+  )
+  const onlineCount = selectedSensors.filter(
+    (sensor) => String(sensor.status || '').toLowerCase() === 'online',
+  ).length
+  const statusDescription = sensorsLoading
+    ? 'Checking sensor status…'
+    : selectedSensors.length === 0
+      ? 'No sensors match the selected filters'
+      : `${onlineCount} of ${selectedSensors.length} selected sensor${selectedSensors.length === 1 ? '' : 's'} online`
 
   function applyRange(event) {
     event.preventDefault()
@@ -266,282 +825,159 @@ export default function Analytics({ token }) {
     setDateRange({ ...draftRange })
   }
 
+  function applyPreset(preset) {
+    const range = preset.range()
+    setDraftRange(range)
+    setDateRange(range)
+    setRangeError('')
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-6" style={{ fontFamily: 'Geist, Inter, Arial, sans-serif' }}>
+      <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Analytics</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Visitor activity from your assigned VS125 sensor sensors.
-          </p>
+          <h1 className="text-3xl font-semibold tracking-[-1.28px] text-[#171717]">Analytics</h1>
+          <p className="mt-1 text-sm text-[#8f8f8f]">Visitor activity and current occupancy from your VS125 sensor.</p>
+        </div>
+        <div className="flex items-center gap-2 rounded-full border border-[#ebebeb] bg-white px-3 py-2 text-sm text-[#4d4d4d]">
+          <span className={`h-2 w-2 rounded-full ${onlineCount > 0 ? 'bg-emerald-500' : 'bg-[#a1a1a1]'}`} />
+          {statusDescription}
+        </div>
+      </header>
+
+      <section className="rounded-2xl border border-[#ebebeb] bg-white p-4 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-5">
+        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-[#171717]">
+          <Store size={17} color="#8f8f8f" aria-hidden="true" />
+          Filters
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <FilterSelect
+            label="Store"
+            value={storeId}
+            onChange={(value) => {
+              setStoreId(value)
+              setSensorId('all')
+              setSelectedLine('all')
+            }}
+            disabled={storesLoading}
+          >
+            <option value="all">All stores</option>
+            {stores.map((store) => <option key={store.id} value={String(store.id)}>{store.name}</option>)}
+          </FilterSelect>
+          <FilterSelect
+            label="Sensor"
+            value={sensorId}
+            onChange={(value) => {
+              setSensorId(value)
+              setSelectedLine('all')
+            }}
+            disabled={sensorsLoading}
+          >
+            <option value="all">All sensors</option>
+            {availableSensors.map((sensor) => (
+              <option key={sensor.id} value={String(sensor.id)}>
+                {sensor.name || `Sensor ${sensor.id}`}
+              </option>
+            ))}
+          </FilterSelect>
+          <FilterSelect
+            label="Counting line"
+            value={selectedLine}
+            onChange={setSelectedLine}
+            disabled={loading || lineOptions.length === 0}
+          >
+            <option value="all">All counting lines</option>
+            {lineOptions.map((line) => (
+              <option key={line.key} value={line.key}>
+                {sensorId === 'all' ? `${line.sensor} · ${line.name}` : line.name}
+              </option>
+            ))}
+          </FilterSelect>
+          <div className="flex min-w-0 flex-wrap items-end gap-1.5 sm:col-span-2">
+            {PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => applyPreset(preset)}
+                className="rounded-full border border-[#ebebeb] bg-white px-3 py-2 text-xs font-medium text-[#4d4d4d] transition-colors hover:bg-[#fafafa]"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-end gap-3">
-          <form
-            onSubmit={applyRange}
-            className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
-          >
-            <label className="grid gap-1 text-xs font-medium text-slate-500">
+        <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-[#f2f2f2] pt-4">
+          <form onSubmit={applyRange} className="flex flex-wrap items-end gap-3">
+            <label className="grid gap-1 text-xs font-medium text-[#8f8f8f]">
               From
               <input
                 type="date"
                 value={draftRange.startDate}
                 onChange={(event) => setDraftRange((range) => ({ ...range, startDate: event.target.value }))}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
                 required
+                className="h-10 rounded-md border border-[#ebebeb] bg-white px-3 text-sm text-[#171717] outline-none focus:border-[#171717]"
               />
             </label>
-            <label className="grid gap-1 text-xs font-medium text-slate-500">
+            <label className="grid gap-1 text-xs font-medium text-[#8f8f8f]">
               To
               <input
                 type="date"
                 value={draftRange.endDate}
                 onChange={(event) => setDraftRange((range) => ({ ...range, endDate: event.target.value }))}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
                 required
+                className="h-10 rounded-md border border-[#ebebeb] bg-white px-3 text-sm text-[#171717] outline-none focus:border-[#171717]"
               />
             </label>
-            <button
-              type="submit"
-              className="flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700"
-            >
-              <CalendarDays size={16} />
-              Apply
+            <button type="submit" className="inline-flex h-10 items-center gap-2 rounded-md bg-[#171717] px-3 text-sm font-medium text-white transition-opacity hover:opacity-80">
+              <CalendarDays size={15} />
+              Apply dates
             </button>
-            {rangeError && <p className="basis-full text-xs text-red-600" role="alert">{rangeError}</p>}
+            {rangeError && <p role="alert" className="basis-full text-xs text-[#ee0000]">{rangeError}</p>}
           </form>
           <button
             type="button"
             onClick={() => setRefreshKey((key) => key + 1)}
-            disabled={loading}
-            aria-label="Refresh readings"
-            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={loading || totalsLoading}
+            aria-label="Refresh analytics"
+            className="inline-flex h-10 items-center gap-2 rounded-md border border-[#ebebeb] bg-white px-3 text-sm font-medium text-[#4d4d4d] shadow-[0px_1px_1px_rgba(0,0,0,0.04)] transition-colors hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={15} className={loading || totalsLoading ? 'animate-spin' : ''} />
             Refresh
           </button>
         </div>
-      </div>
+      </section>
 
-      {loadError && (
-        <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
-          <AlertCircle size={18} />
-          <span>{loadError}</span>
+      {(loadError || storesError || sensorsError) && (
+        <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <AlertCircle size={17} className="mt-0.5 shrink-0" />
+          <div className="space-y-1">
+            {loadError && <p>{loadError}</p>}
+            {storesError && <p>Store filters: {storesError}</p>}
+            {sensorsError && <p>Sensor filters: {sensorsError}</p>}
+          </div>
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          label="Visitors"
-          value={loading ? '—' : totalVisitors.toLocaleString()}
-          detail={growth === undefined ? `${totalExits.toLocaleString()} recorded exits` : 'compared with previous period'}
-          icon={Users}
-          trend={growth}
-        />
-        <MetricCard
-          label="Daily average"
-          value={loading ? '—' : averageVisitors.toLocaleString()}
-          detail="visitors per calendar day"
-          icon={Activity}
-        />
-        <MetricCard
-          label="Peak hour"
-          value={loading ? '—' : peakHour.hour}
-          detail={`${peakHour.visitors.toLocaleString()} visitors`}
-          icon={CalendarDays}
-        />
-        <MetricCard
-          label="sensors reporting"
-          value={loading ? '—' : sensorsTracked}
-          detail={`${storeStats.length} stores with readings`}
-          icon={Camera}
-        />
-      </div>
+      <Occupancy
+        loading={totalsLoading}
+        error={totalsError}
+        occupancy={occupancy}
+        updatedAt={occupancy.updatedAt}
+      />
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <ChartPanel
-          title="Visitor trend"
-          detail={`${dateLabel(dateRange.startDate)} – ${dateLabel(dateRange.endDate)}`}
-          className="xl:col-span-2"
-        >
-          {dailyTrend.some((day) => day.visitors > 0) ? (
-            <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dailyTrend} margin={{ top: 12, right: 8, left: -16, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="visitorFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#0f766e" stopOpacity={0.28} />
-                      <stop offset="95%" stopColor="#0f766e" stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="4 4" vertical={false} />
-                  <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
-                  <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12 }}
-                    tickFormatter={(value) => `${(value / 1000).toFixed(1)}k`}
-                  />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                    labelStyle={{ color: '#334155', fontWeight: 600 }}
-                    formatter={(value) => [Number(value).toLocaleString(), 'Visitors']}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="visitors"
-                    stroke="#0f766e"
-                    strokeWidth={3}
-                    fill="url(#visitorFill)"
-                    activeDot={{ r: 5, strokeWidth: 0 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-500">
-              {loading ? 'Loading sensor readings…' : 'No sensor readings in this date range.'}
-            </div>
-          )}
-        </ChartPanel>
+      <TrafficCards loading={loading} totals={totals} previousTotals={previousTotals} />
 
-        <ChartPanel title="Visitors by store" detail="Share of recorded entries by store">
-          {storeStats.length ? (
-            <>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={storeStats}
-                      dataKey="visitors"
-                      nameKey="name"
-                      innerRadius={66}
-                      outerRadius={98}
-                      paddingAngle={4}
-                      stroke="none"
-                    >
-                      {storeStats.map((store, index) => (
-                        <Cell key={store.id} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={tooltipStyle}
-                      formatter={(value) => [Number(value).toLocaleString(), 'Visitors']}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                {storeStats.map((store, index) => (
-                  <div key={store.id} className="flex min-w-0 items-center gap-2 text-xs text-slate-600">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                    <span className="truncate">{store.name}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-500">
-              {loading ? 'Loading sensor readings…' : 'No store readings in this date range.'}
-            </div>
-          )}
-        </ChartPanel>
-      </div>
+      <GenderDistribution totals={totals} loading={loading} />
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <ChartPanel title="Hourly activity" detail="Recorded entries by hour of day">
-          {hourlyActivity.length ? (
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={hourlyActivity} margin={{ top: 12, right: 8, left: -16, bottom: 0 }}>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="4 4" vertical={false} />
-                  <XAxis dataKey="hour" tickLine={false} axisLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                    formatter={(value) => [Number(value).toLocaleString(), 'Visitors']}
-                  />
-                  <Bar dataKey="visitors" fill="#2563eb" radius={[5, 5, 0, 0]} maxBarSize={28} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-500">
-              {loading ? 'Loading sensor readings…' : 'No hourly readings in this date range.'}
-            </div>
-          )}
-        </ChartPanel>
+      <ChildrenAnalytics loading={loading} />
 
-        <ChartPanel title="Store comparison" detail="Recorded entries by store">
-          {storeStats.length ? (
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={storeStats} layout="vertical" margin={{ top: 8, right: 20, left: 8, bottom: 0 }}>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="4 4" horizontal={false} />
-                  <XAxis
-                    type="number"
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12 }}
-                    tickFormatter={(value) => `${value / 1000}k`}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={100}
-                    tickLine={false}
-                    axisLine={false}
-                    tick={{ fill: '#64748b', fontSize: 12 }}
-                  />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
-                    formatter={(value) => [Number(value).toLocaleString(), 'Visitors']}
-                  />
-                  <Bar dataKey="visitors" fill="#7c3aed" radius={[0, 6, 6, 0]} maxBarSize={28} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-slate-200 text-sm text-slate-500">
-              {loading ? 'Loading sensor readings…' : 'No store readings in this date range.'}
-            </div>
-          )}
-        </ChartPanel>
-      </div>
-
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-5 py-4 md:px-6">
-          <h2 className="font-semibold text-slate-900">Store snapshot</h2>
-          <p className="mt-1 text-sm text-slate-500">Visitor entries and sensors reporting during this period.</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-136 text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-5 py-3 font-medium md:px-6">Store</th>
-                <th className="px-5 py-3 text-right font-medium">Visitors</th>
-                <th className="px-5 py-3 text-right font-medium md:px-6">sensors reporting</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {storeStats.map((store) => (
-                <tr key={store.id}>
-                  <td className="px-5 py-4 font-medium text-slate-800 md:px-6">{store.name}</td>
-                  <td className="px-5 py-4 text-right tabular-nums text-slate-600">{store.visitors.toLocaleString()}</td>
-                  <td className="px-5 py-4 text-right tabular-nums text-slate-600 md:px-6">{store.sensors}</td>
-                </tr>
-              ))}
-              {!storeStats.length && (
-                <tr>
-                  <td colSpan={3} className="px-5 py-8 text-center text-slate-500">
-                    {loading ? 'Loading sensor readings…' : 'No sensor data available for this period.'}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <DailyTrafficChart
+        data={dailyData}
+        loading={loading}
+        startDate={dateRange.startDate}
+        endDate={dateRange.endDate}
+      />
     </div>
   )
 }

@@ -429,13 +429,13 @@ def _normalize_device_line(
         raise ValueError("Each VS125 line must contain a valid line_name")
 
     suffix = "_counted" if cumulative else ""
+    count_source = total
     return {
         "sensor_id": sensor_id,
         "line_id": line_id,
         "line_name": line_name.strip(),
         "line_uuid": line_uuid.strip(),
-        # Choose count source based on whether this is cumulative total or periodic interval.
-        count_source = total 
+        # Choose count source based on whether this is cumulative total or periodic interval
         "individuals_in": _read_count(count_source, "in", suffix=suffix),
         "individuals_out": _read_count(count_source, "out", suffix=suffix),
         "male_in": _read_count(count_source, "male_in", suffix=suffix),

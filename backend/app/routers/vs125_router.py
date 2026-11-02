@@ -133,13 +133,14 @@ async def vs125_device_webhook(request: Request):
             detail="Basic authentication required",
             headers={"WWW-Authenticate": "Basic"},
         )
-
     try:
         decoded = base64.b64decode(
             authorization.split(" ", 1)[1],
             validate=True,
         ).decode("utf-8")
+
         username, password = decoded.split(":", 1)
+
     except (ValueError, UnicodeDecodeError) as exc:
         raise HTTPException(
             status_code=401,

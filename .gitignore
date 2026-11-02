@@ -18,3 +18,7 @@ build/
 
 # Logs
 *.log
+backups/
+vs125_router.py.bak
+vs125_router.py.save
+cloudflared.deb

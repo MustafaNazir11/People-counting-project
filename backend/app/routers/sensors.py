@@ -151,7 +151,6 @@ async def get_sensor_details(
         "name": sensor.name,
         "store_id": sensor.store_id,
         "status": sensor.status,
-        "milesight_device_id": sensor.milesight_device_id,
         "serial_number": sensor.serial_number,
         "model": sensor.model,
         "firmware_version": sensor.firmware_version,

@@ -655,7 +655,6 @@ async def create_sensor(
                 "id": sensor.id,
                 "name": sensor.name,
                 "store_id": sensor.store_id,
-                "milesight_device_id": sensor.milesight_device_id,
                 "serial_number": sensor.serial_number,
                 "model": sensor.model,
                 "status": sensor.status,
@@ -693,9 +692,7 @@ async def list_store_sensors(
             "sensors": [
                 {
                     "id": sensor.id,
-                    "device_id": sensor.device_id,
                     "name": sensor.name,
-                    "milesight_device_id": sensor.milesight_device_id,
                     "serial_number": sensor.serial_number,
                     "model": sensor.model,
                     "firmware_version": sensor.firmware_version,
@@ -703,7 +700,7 @@ async def list_store_sensors(
                     "status": sensor.status,
                     "is_enabled": sensor.is_enabled,
                     "last_seen_at": sensor.last_seen_at,
-                    "config_synced_at": sensor.config_synced_at,
+                    # "config_synced_at": sensor.config_synced_at,
                     "created_at": sensor.created_at,
                 }
                 for sensor in sensors

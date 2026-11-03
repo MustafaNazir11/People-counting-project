@@ -7,6 +7,7 @@ from app.database import AsyncSessionLocal
 from app.models import User, Organization
 from app.schemas import RegisterRequest
 from app.auth.auth import hash_password
+from app.auth.dependencies import get_current_user
 
 router = APIRouter(
     prefix="/auth",
@@ -22,9 +23,15 @@ async def get_db():
 @router.post("/register")
 async def register(
     data: RegisterRequest,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-
+    if current_user.role != "platform_admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Only platform admins can register users"
+        )
+    
     result = await db.execute(
         select(User).where(
             User.email == data.email

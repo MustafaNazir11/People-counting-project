@@ -161,8 +161,8 @@ async def get_sensor_details(
             else None
         ),
         "config_synced_at": (
-            sensor.config_synced_at.isoformat()
-            if sensor.config_synced_at
+            saved_configuration.fetched_at.isoformat()
+            if saved_configuration and saved_configuration.fetched_at
             else None
         ),
         "created_at": (

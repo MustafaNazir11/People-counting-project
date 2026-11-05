@@ -432,7 +432,7 @@ def _read_count(container: Any, key: str, *, suffix: str = "") -> int:
 def _read_capacity_count(container: dict[str, Any]) -> int | None:
     value = container.get("capacity_counted")
 
-    if value is None or value == -1 or value == "-1":
+    if value is None:
         return None
 
     if isinstance(value, bool):
@@ -443,11 +443,11 @@ def _read_capacity_count(container: dict[str, Any]) -> int | None:
     except (TypeError, ValueError) as exc:
         raise ValueError("Invalid VS125 capacity_counted") from exc
 
+    # Negative values indicate unavailable capacity readings.
     if count < 0:
-        raise ValueError("VS125 capacity_counted cannot be negative")
+        return None
 
     return count
-
 
 def _normalize_device_line(
     line: Any,

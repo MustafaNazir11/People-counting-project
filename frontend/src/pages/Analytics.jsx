@@ -214,7 +214,7 @@ function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occup
           <div className="mt-auto grid grid-cols-3 border-t border-[#ebebeb] pt-5">
             <div className="flex justify-center"><Metric icon={Mars} label="Male" value={totals.maleIn} loading={loading} color={MALE_COLOR} /></div>
             <div className="flex justify-center border-x border-[#f2f2f2]"><Metric icon={Venus} label="Female" value={totals.femaleIn} loading={loading} color={FEMALE_COLOR} /></div>
-            <div className="flex justify-center"><Metric icon={Baby} label="Children" loading={loading} unavailable color={CHILD_COLOR} /></div>
+            <div className="flex justify-center"><Metric icon={Baby} label="Children" value={totals.childrenIn} loading={loading} color={CHILD_COLOR} /></div>
           </div>
         </article>
 
@@ -238,7 +238,7 @@ function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occup
           <div className="mt-auto grid grid-cols-3 border-t border-[#ebebeb] pt-5">
             <div className="flex justify-center"><Metric icon={Mars} label="Male" value={totals.maleOut} loading={loading} color={MALE_COLOR} /></div>
             <div className="flex justify-center border-x border-[#f2f2f2]"><Metric icon={Venus} label="Female" value={totals.femaleOut} loading={loading} color={FEMALE_COLOR} /></div>
-            <div className="flex justify-center"><Metric icon={Baby} label="Children" loading={loading} unavailable color={CHILD_COLOR} /></div>
+            <div className="flex justify-center"><Metric icon={Baby} label="Children" value={totals.childrenOut} loading={loading} color={CHILD_COLOR} /></div>
           </div>
         </article>
 

@@ -16,7 +16,6 @@ from app.models import (
     SensorDeviceInfo,
     SensorIngestCredential,
     SensorLineReading,
-    SensorLineTotalSnapshot,
 )
 
 
@@ -468,6 +467,17 @@ def _normalize_device_line(
     if not all(isinstance(part, dict) for part in (total, group, children)):
         raise ValueError("VS125 total, group and children fields must be objects")
 
+    # Extract children counts safely — default to 0 if missing or invalid
+    def _children_count(key: str) -> int:
+        val = children.get(key, 0)
+        if isinstance(val, bool):
+            return 0
+        try:
+            count = int(val)
+            return max(0, count)
+        except (TypeError, ValueError):
+            return 0
+
     line_uuid = line.get("line_uuid")
     if not isinstance(line_uuid, str) or not line_uuid.strip():
         raise ValueError("Each VS125 line must contain a valid line_uuid")
@@ -507,6 +517,8 @@ def _normalize_device_line(
         "female_out": female_out,
         "group_in": _read_count(group, "in", suffix=suffix),
         "group_out": _read_count(group, "out", suffix=suffix),
+        "children_in": _children_count("in"),
+        "children_out": _children_count("out"),
         "children": children,
         "period_start_at": period_start,
         "recorded_at": period_end,
@@ -517,7 +529,7 @@ def _normalize_device_line(
             if cumulative
             else None
         ),
-        "raw_data": line,
+        
     }
 
 
@@ -663,7 +675,6 @@ async def ingest_device_report(
     ).hexdigest()
 
     periodic_saved = 0
-    totals_upserted = 0
 
     if periodic_values:
         periodic_rows = [
@@ -673,7 +684,6 @@ async def ingest_device_report(
                 if key not in {
                     "is_retransmission",
                     "capacity_counted",
-                    "raw_data",
                 }
             }
             | {
@@ -690,36 +700,9 @@ async def ingest_device_report(
         result = await db.execute(statement)
         periodic_saved = result.rowcount or 0
 
-    if total_values:
-        statement = insert(SensorLineTotalSnapshot).values(total_values)
-        statement = statement.on_conflict_do_update(
-            constraint="uq_sensor_total_snapshot_sensor_line_time",
-            set_={
-                "line_id": statement.excluded.line_id,
-                "line_name": statement.excluded.line_name,
-                "individuals_in": statement.excluded.individuals_in,
-                "individuals_out": statement.excluded.individuals_out,
-                "male_in": statement.excluded.male_in,
-                "male_out": statement.excluded.male_out,
-                "female_in": statement.excluded.female_in,
-                "female_out": statement.excluded.female_out,
-                "group_in": statement.excluded.group_in,
-                "group_out": statement.excluded.group_out,
-                "capacity_counted": statement.excluded.capacity_counted,
-                "children": statement.excluded.children,
-                "raw_data": statement.excluded.raw_data,
-                "is_retransmission": statement.excluded.is_retransmission,
-                "period_start_at": statement.excluded.period_start_at,
-                "received_at": statement.excluded.received_at,
-            },
-        )
-        result = await db.execute(statement)
-        totals_upserted = result.rowcount or 0
-
     return {
         "status": "saved",
         "periodic_records_saved": periodic_saved,
-        "total_snapshots_upserted": totals_upserted,
         "periodic_lines_received": periodic_lines_received,
         "total_lines_received": total_lines_received,
         "active_lines": len(active_line_uuids),

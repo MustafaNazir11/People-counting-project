@@ -13,7 +13,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.database import AsyncSessionLocal
 from app.models import (
     Sensor, Store, UserStoreAccess, SensorLineReading, Organization,
-    SensorConfiguration, SensorDeviceInfo, SensorLineTotalSnapshot,
+    SensorConfiguration, SensorDeviceInfo,
 )
 from app.auth.dependencies import get_current_user
 from app.services.vs125_service import (
@@ -378,6 +378,8 @@ async def get_vs125_readings(
                 SensorLineReading.female_out,
                 SensorLineReading.group_in,
                 SensorLineReading.group_out,
+                SensorLineReading.children_in,
+                SensorLineReading.children_out,
                 SensorLineReading.children,
                 SensorLineReading.period_start_at,
                 SensorLineReading.recorded_at,
@@ -454,6 +456,8 @@ async def get_vs125_readings(
                 "female_out": row.female_out,
                 "group_in": row.group_in,
                 "group_out": row.group_out,
+                "children_in": row.children_in,
+                "children_out": row.children_out,
                 "children": row.children,
                 "period_start_at": (
                     row.period_start_at.isoformat()
@@ -473,82 +477,6 @@ async def get_vs125_readings(
     }
 
 
-@router.get("/totals")
-async def get_vs125_totals(
-    sensor_id: int | None = None,
-    limit: int = Query(default=1000, ge=1, le=2000),
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Return the newest cumulative counter snapshot for each sensor line."""
 
-    query = (
-        select(SensorLineTotalSnapshot, Store.id, Store.name)
-        .join(Sensor, Sensor.id == SensorLineTotalSnapshot.sensor_id)
-        .join(Store, Store.id == Sensor.store_id)
-        .where(
-            Store.organization_id == current_user["organization_id"],
-            Store.is_active.is_(True),
-            Sensor.is_enabled.is_(True),
-        )
-    )
 
-    if current_user["role"] != "org_admin":
-        query = (
-            query.join(UserStoreAccess, UserStoreAccess.store_id == Store.id)
-            .where(UserStoreAccess.user_id == current_user["id"])
-        )
-
-    if sensor_id is not None:
-        query = query.where(SensorLineTotalSnapshot.sensor_id == sensor_id)
-
-    query = query.order_by(
-        desc(SensorLineTotalSnapshot.recorded_at),
-        desc(SensorLineTotalSnapshot.id),
-    ).limit(limit)
-
-    result = await db.execute(query)
-    latest_by_line = {}
-    for row, store_id, store_name in result.all():
-        key = (row.sensor_id, row.line_uuid)
-        if key in latest_by_line:
-            continue
-        latest_by_line[key] = {
-            "id": row.id,
-            "sensor_id": row.sensor_id,
-            "store_id": store_id,
-            "store_name": store_name,
-            "line_id": row.line_id,
-            "line_name": row.line_name,
-            "line_uuid": row.line_uuid,
-            "individuals_in": row.individuals_in,
-            "individuals_out": row.individuals_out,
-            "male_in": row.male_in,
-            "male_out": row.male_out,
-            "female_in": row.female_in,
-            "female_out": row.female_out,
-            "group_in": row.group_in,
-            "group_out": row.group_out,
-            "capacity_counted": row.capacity_counted,
-            "children": row.children,
-            "period_start_at": (
-                row.period_start_at.isoformat()
-                if row.period_start_at else None
-            ),
-            "recorded_at": (
-                row.recorded_at.isoformat()
-                if row.recorded_at else None
-            ),
-            "received_at": (
-                row.received_at.isoformat()
-                if row.received_at else None
-            ),
-            "is_retransmission": row.is_retransmission,
-        }
-
-    snapshots = list(latest_by_line.values())
-    return {
-        "count": len(snapshots),
-        "snapshots": snapshots,
-    }
 

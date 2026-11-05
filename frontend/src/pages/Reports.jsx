@@ -847,8 +847,15 @@ export default function Reports({ token, onOpenAnalytics }) {
     }
   }
 
-  // ── Summary (static fallback — kept intact) ────────────────────────────────
+  // ── Summary (uses live report data when available, static fallback otherwise) ─
   const summary = useMemo(() => {
+    if (reportResult?.rows?.length) {
+      const rows = reportResult.rows
+      const totalEntries  = rows.reduce((s, r) => s + (r.individuals_in  ?? 0), 0)
+      const totalExits    = rows.reduce((s, r) => s + (r.individuals_out ?? 0), 0)
+      const activeSensors = new Set(rows.map((r) => r.sensor_id)).size
+      return { totalEntries, totalExits, activeSensors }
+    }
     const totalEntries = STATIC_ROWS.reduce((s, r) => s + r.entries, 0)
     const totalExits   = STATIC_ROWS.reduce((s, r) => s + r.exits, 0)
     return {
@@ -856,7 +863,7 @@ export default function Reports({ token, onOpenAnalytics }) {
       totalExits,
       activeSensors: new Set(STATIC_ROWS.map((r) => r.sensor)).size,
     }
-  }, [])
+  }, [reportResult])
 
   // ── Export ─────────────────────────────────────────────────────────────────
   function handleExport() {

@@ -212,9 +212,9 @@ function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occup
             {shown(totals.totalIn)}
           </p>
           <div className="mt-auto grid grid-cols-3 border-t border-[#ebebeb] pt-5">
-            <div className="pr-3"><Metric icon={Mars} label="Male" value={totals.maleIn} loading={loading} color={MALE_COLOR} /></div>
-            <div className="border-x border-[#f2f2f2] px-3"><Metric icon={Venus} label="Female" value={totals.femaleIn} loading={loading} color={FEMALE_COLOR} /></div>
-            <div className="pl-3"><Metric icon={Baby} label="Children" loading={loading} unavailable color={CHILD_COLOR} /></div>
+            <div className="flex justify-center"><Metric icon={Mars} label="Male" value={totals.maleIn} loading={loading} color={MALE_COLOR} /></div>
+            <div className="flex justify-center border-x border-[#f2f2f2]"><Metric icon={Venus} label="Female" value={totals.femaleIn} loading={loading} color={FEMALE_COLOR} /></div>
+            <div className="flex justify-center"><Metric icon={Baby} label="Children" loading={loading} unavailable color={CHILD_COLOR} /></div>
           </div>
         </article>
 
@@ -236,9 +236,9 @@ function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occup
             {shown(totals.totalOut)}
           </p>
           <div className="mt-auto grid grid-cols-3 border-t border-[#ebebeb] pt-5">
-            <div className="pr-3"><Metric icon={Mars} label="Male" value={totals.maleOut} loading={loading} color={MALE_COLOR} /></div>
-            <div className="border-x border-[#f2f2f2] px-3"><Metric icon={Venus} label="Female" value={totals.femaleOut} loading={loading} color={FEMALE_COLOR} /></div>
-            <div className="pl-3"><Metric icon={Baby} label="Children" loading={loading} unavailable color={CHILD_COLOR} /></div>
+            <div className="flex justify-center"><Metric icon={Mars} label="Male" value={totals.maleOut} loading={loading} color={MALE_COLOR} /></div>
+            <div className="flex justify-center border-x border-[#f2f2f2]"><Metric icon={Venus} label="Female" value={totals.femaleOut} loading={loading} color={FEMALE_COLOR} /></div>
+            <div className="flex justify-center"><Metric icon={Baby} label="Children" loading={loading} unavailable color={CHILD_COLOR} /></div>
           </div>
         </article>
 

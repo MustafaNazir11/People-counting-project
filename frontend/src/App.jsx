@@ -88,7 +88,7 @@ export default function App() {
       ) : activePage === 'Sensors' ? (
         <Sensors token={auth.token} />
       ) : activePage === 'Reports' ? (
-        <Reports onOpenAnalytics={() => setActivePage('Analytics')} />
+        <Reports token={auth.token} onOpenAnalytics={() => setActivePage('Analytics')} />
       ) : (
         <Overview />
       )}

@@ -9,12 +9,7 @@ export default function Header({ activePage, user, onLogout }) {
       </div>
 
       <div className="flex items-center gap-3">
-        <button
-          aria-label="Search"
-          className="rounded-lg border border-slate-200 p-2.5 text-slate-600 hover:bg-slate-50"
-        >
-          <Search size={18} />
-        </button>
+        
         <button
           aria-label="Notifications"
           className="rounded-lg border border-slate-200 p-2.5 text-slate-600 hover:bg-slate-50"

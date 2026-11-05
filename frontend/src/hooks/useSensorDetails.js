@@ -21,6 +21,7 @@ export default function useSensorDetails(sensorId, token) {
     const controller = new AbortController()
 
     async function loadDetails() {
+      setResult((prev) => ({ ...prev, loading: true, error: '' }))
       try {
         const data = await apiFetch(`/sensors/${sensorId}/details`, token, {
           signal: controller.signal,

@@ -1,0 +1,75 @@
+
+name: Deploy Backend to EC2
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy FastAPI to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Transfer backend files
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+          EC2_APP_DIR: ${{ vars.EC2_APP_DIR }}
+        run: |
+          rsync -az \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='.venv/' \
+            --exclude='venv/' \
+            --exclude='__pycache__/' \
+            --exclude='*.pyc' \
+            --exclude='.git/' \
+            backend/ \
+            "$EC2_USER@$EC2_HOST:$EC2_APP_DIR/"
+
+      - name: Install dependencies and restart service
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+          EC2_APP_DIR: ${{ vars.EC2_APP_DIR }}
+          EC2_SERVICE: ${{ vars.EC2_SERVICE_NAME }}
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            "$EC2_USER@$EC2_HOST" \
+            "cd '$EC2_APP_DIR' && \
+            if [ -x .venv/bin/pip ]; then \
+              PIP=.venv/bin/pip; \
+            elif [ -x venv/bin/pip ]; then \
+              PIP=venv/bin/pip; \
+            else \
+              echo 'Python virtual environment not found'; exit 1; \
+            fi && \
+            \$PIP install -r requirements.txt && \
+            sudo systemctl restart '$EC2_SERVICE' && \
+            sleep 3 && \
+            sudo systemctl is-active '$EC2_SERVICE'"
+
+      - name: Deployment completed
+        run: echo "Backend deployment successful!"

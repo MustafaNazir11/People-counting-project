@@ -620,7 +620,7 @@ async def ingest_device_report(
     active_line_uuids = {
         row["line_uuid"]
         for row in periodic_values
-        if _has_nonzero_footfall([row], [])
+        if _has_nonzero_footfall([row])
     }
 
     periodic_lines_received = len(periodic_values)

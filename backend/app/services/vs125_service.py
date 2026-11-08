@@ -535,7 +535,6 @@ def _normalize_device_line(
 
 def _has_nonzero_footfall(
     periodic_values: list[dict[str, Any]],
-    total_values: list[dict[str, Any]],
 ) -> bool:
     count_fields = (
         "individuals_in",
@@ -548,7 +547,7 @@ def _has_nonzero_footfall(
         "group_out",
     )
 
-    for row in periodic_values + total_values:
+    for row in periodic_values:
         for field in count_fields:
             value = row.get(field, 0)
             if isinstance(value, (int, float)) and not isinstance(value, bool):
@@ -574,7 +573,7 @@ async def ingest_device_report(
     """
     Persist the actual VS125 HTTP report:
       - line_periodic_data -> interval readings for footfall analytics
-      - line_total_data -> cumulative counter snapshots
+      
     """
     received_at = datetime.now(timezone.utc)
     time_info = data.get("time_info") or {}
@@ -597,12 +596,13 @@ async def ingest_device_report(
     # Actual VS125 payload uses line_periodic_data. The alternate key is
     # retained for older firmware/integrations already sending this shape.
     periodic_data = data.get("line_periodic_data")
+
     if periodic_data is None:
         periodic_data = data.get("line_periodic_total_data", [])
-    total_data = data.get("line_total_data", [])
+    
 
-    if not isinstance(periodic_data, list) or not isinstance(total_data, list):
-        raise ValueError("VS125 periodic and total readings must be arrays")
+    if not isinstance(periodic_data, list):
+        raise ValueError("VS125 periodic must be arrays")
 
     periodic_values = [
         _normalize_device_line(
@@ -616,19 +616,6 @@ async def ingest_device_report(
         )
         for line in periodic_data
     ]
-    total_values = [
-        _normalize_device_line(
-            line,
-            cumulative=True,
-            sensor_id=sensor_id,
-            period_start=period_start,
-            period_end=period_end,
-            received_at=received_at,
-            is_retransmission=retransmission,
-        )
-        for line in total_data
-    ]
-        # Reject reports containing no actual footfall.
         # Keep only lines that recorded actual footfall in this interval.
     active_line_uuids = {
         row["line_uuid"]
@@ -637,7 +624,6 @@ async def ingest_device_report(
     }
 
     periodic_lines_received = len(periodic_values)
-    total_lines_received = len(total_values)
 
     # Filter periodic readings independently for each line.
     periodic_values = [
@@ -645,11 +631,7 @@ async def ingest_device_report(
         if row["line_uuid"] in active_line_uuids
     ]
 
-    # Save cumulative snapshots only for lines with periodic footfall.
-    total_values = [
-        row for row in total_values
-        if row["line_uuid"] in active_line_uuids
-    ]
+    
 
     # If no line recorded footfall, acknowledge without saving readings.
     if not periodic_values:
@@ -657,9 +639,7 @@ async def ingest_device_report(
             "status": "ignored",
             "reason": "No footfall detected in any line",
             "periodic_records_saved": 0,
-            "total_snapshots_upserted": 0,
             "periodic_lines_received": periodic_lines_received,
-            "total_lines_received": total_lines_received,
             "active_lines": 0,
             "ignored_lines": periodic_lines_received,
         }

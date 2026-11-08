@@ -175,7 +175,7 @@ async def vs125_device_webhook(request: Request):
             "status": "ok",
             "message": "test received",
             "periodic_records_saved": 0,
-            "total_snapshots_upserted": 0,
+            
         }
 
     try:
@@ -331,10 +331,9 @@ async def vs125_device_webhook(request: Request):
         )
     else:
         logger.info(
-            "VS125 report saved sensor_id=%s periodic_saved=%s total_snapshots=%s",
+            "VS125 report saved sensor_id=%s periodic_saved=%s",
             sensor_id,
             counts["periodic_records_saved"],
-            counts["total_snapshots_upserted"],
         )
 
     return {

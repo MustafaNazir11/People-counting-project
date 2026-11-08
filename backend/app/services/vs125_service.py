@@ -684,7 +684,6 @@ async def ingest_device_report(
         "status": "saved",
         "periodic_records_saved": periodic_saved,
         "periodic_lines_received": periodic_lines_received,
-        "total_lines_received": total_lines_received,
         "active_lines": len(active_line_uuids),
         "ignored_lines": periodic_lines_received - len(active_line_uuids),
     }

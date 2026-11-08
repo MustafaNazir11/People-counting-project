@@ -3,6 +3,12 @@ name: Deploy Backend to EC2
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
 
 permissions:
   contents: read

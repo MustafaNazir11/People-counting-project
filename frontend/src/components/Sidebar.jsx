@@ -1,5 +1,6 @@
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard,
   Store,
@@ -9,17 +10,18 @@ import {
   GitCompareArrows,
 } from 'lucide-react'
 
-const navigation = [
-  { label: 'Overview',              icon: LayoutDashboard },
-  { label: 'Analytics',             icon: ChartNoAxesCombined },
-  { label: 'Store vs Store',        icon: GitCompareArrows, comingSoon: true },
-  { label: 'Stores',                icon: Store },
-  { label: 'Sensors',               icon: Camera },
-  { label: 'Reports',               icon: FileText },
-]
-
 export default function Sidebar({ activePage, setActivePage }) {
+  const { t } = useTranslation()
   const [showComingSoon, setShowComingSoon] = useState(false)
+
+  const navigation = [
+    { label: 'Overview',       labelKey: 'common.overview',      icon: LayoutDashboard },
+    { label: 'Analytics',      labelKey: 'common.analytics',     icon: ChartNoAxesCombined },
+    { label: 'Store vs Store', labelKey: 'common.storeVsStore',  icon: GitCompareArrows, comingSoon: true },
+    { label: 'Stores',         labelKey: 'common.stores',        icon: Store },
+    { label: 'Sensors',        labelKey: 'common.sensors',       icon: Camera },
+    { label: 'Reports',        labelKey: 'common.reports',       icon: FileText },
+  ]
 
   return (
     <>
@@ -29,17 +31,17 @@ export default function Sidebar({ activePage, setActivePage }) {
             HM
           </div>
           <div>
-            <h1 className="font-semibold text-slate-900">People Counting </h1>
-            <p className="text-xs text-slate-500">Store Management</p>
+            <h1 className="font-semibold text-slate-900">{t('common.peopleCounting')}</h1>
+            <p className="text-xs text-slate-500">{t('common.storeManagement')}</p>
           </div>
         </div>
 
         <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
-          Workspace
+          {t('common.workspace')}
         </p>
 
         <nav className="flex-1 space-y-1">
-          {navigation.map(({ label, icon: Icon, comingSoon }) => (
+          {navigation.map(({ label, labelKey, icon: Icon, comingSoon }) => (
             <button
               key={label}
               onClick={() => comingSoon ? setShowComingSoon(true) : setActivePage(label)}
@@ -50,10 +52,10 @@ export default function Sidebar({ activePage, setActivePage }) {
               }`}
             >
               <Icon size={18} />
-              <span className="flex-1 text-left">{label}</span>
+              <span className="flex-1 text-left">{t(labelKey)}</span>
               {comingSoon && (
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                  Soon
+                  {t('common.soon')}
                 </span>
               )}
             </button>
@@ -61,9 +63,9 @@ export default function Sidebar({ activePage, setActivePage }) {
         </nav>
 
         <div className="mt-8 rounded-xl bg-slate-50 p-4">
-          <p className="text-sm font-medium">Store workspace</p>
+          <p className="text-sm font-medium">{t('common.storeWorkspace')}</p>
           <p className="mt-1 text-xs leading-5 text-slate-500">
-            Monitor your sensors and visitor activity in one place.
+            {t('common.monitorSensors')}
           </p>
         </div>
       </aside>
@@ -73,7 +75,7 @@ export default function Sidebar({ activePage, setActivePage }) {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Coming soon"
+          aria-label={t('comingSoon.storeVsStore.title')}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
           onClick={() => setShowComingSoon(false)}
         >
@@ -84,16 +86,16 @@ export default function Sidebar({ activePage, setActivePage }) {
             <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100">
               <GitCompareArrows size={20} className="text-slate-600" />
             </div>
-            <h2 className="text-base font-semibold text-[#171717]">Store vs Store — coming soon</h2>
+            <h2 className="text-base font-semibold text-[#171717]">{t('comingSoon.storeVsStore.title')}</h2>
             <p className="mt-2 text-sm leading-relaxed text-[#4d4d4d]">
-              Side-by-side store comparison with traffic, demographics, and trend analysis across multiple locations will be available in a future update.
+              {t('comingSoon.storeVsStore.description')}
             </p>
             <button
               type="button"
               onClick={() => setShowComingSoon(false)}
               className="mt-5 w-full rounded-full bg-[#171717] py-2.5 text-sm font-medium text-white transition hover:bg-[#2b2b2b]"
             >
-              Got it
+              {t('comingSoon.storeVsStore.gotIt')}
             </button>
           </div>
         </div>

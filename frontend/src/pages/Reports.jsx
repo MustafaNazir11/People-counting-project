@@ -25,6 +25,7 @@ import {
   YAxis,
 } from 'recharts'
 import { apiFetch } from '../api'
+import { arNum } from '../utils/arNum'
 import useStores from '../hooks/useStores'
 import useSensors from '../hooks/useSensors'
 
@@ -541,7 +542,7 @@ function ComparisonTable({ pairs }) {
           {pairs.map(([label, value]) => (
             <tr key={label}>
               <td className="px-4 py-3 text-[#171717]">{label}</td>
-              <td className="px-4 py-3 text-right tabular-nums text-[#171717]">{Number(value).toLocaleString()}</td>
+              <td className="px-4 py-3 text-right tabular-nums text-[#171717]">{arNum(value)}</td>
             </tr>
           ))}
         </tbody>
@@ -559,8 +560,8 @@ function ComparisonChart({ pairs }) {
           <CartesianGrid stroke="#f2f2f2" vertical={false} />
           <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: '#8f8f8f', fontSize: 12 }} />
           <YAxis tickLine={false} axisLine={false} tick={{ fill: '#8f8f8f', fontSize: 11 }}
-            tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v} width={44} allowDecimals={false} />
-          <Tooltip contentStyle={tooltipStyle} formatter={(v) => [Number(v).toLocaleString()]} />
+            tickFormatter={(v) => v >= 1000 ? `${arNum((v / 1000).toFixed(1))}k` : arNum(v)} width={44} allowDecimals={false} />
+          <Tooltip contentStyle={tooltipStyle} formatter={(v) => [arNum(v)]} />
           <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={64}>
             {data.map((entry, i) => <Cell key={i} fill={entry.color} />)}
           </Bar>
@@ -617,17 +618,17 @@ function ReportResultsCard({ result, onClearReport }) {
                   {pairs.map(([pairLabel, value]) => (
                     <div key={pairLabel} className="flex items-center justify-between gap-2">
                       <span className="text-xs text-[#4d4d4d]">{pairLabel}</span>
-                      <span className="text-sm font-semibold tabular-nums text-[#171717]">{Number(value).toLocaleString()}</span>
+                      <span className="text-sm font-semibold tabular-nums text-[#171717]">{arNum(value)}</span>
                     </div>
                   ))}
                 </div>
               ) : (
                 <>
                   <p className={`mt-2 font-semibold tabular-nums tracking-tight text-[#171717] ${isPeakHour ? 'text-xl' : 'text-3xl'}`}>
-                    {isPeakHour ? (scalar ?? 'N/A') : Number(scalar).toLocaleString()}
+                    {isPeakHour ? (scalar ?? 'N/A') : arNum(scalar)}
                   </p>
                   {!isPeakHour && id !== 'avg_hourly' && (
-                    <p className="mt-1 text-[11px] text-[#a1a1a1]">{rows.length.toLocaleString()} reading{rows.length !== 1 ? 's' : ''}</p>
+                    <p className="mt-1 text-[11px] text-[#a1a1a1]">{arNum(rows.length)} reading{rows.length !== 1 ? 's' : ''}</p>
                   )}
                 </>
               )}
@@ -924,9 +925,9 @@ export default function Reports({ token, onOpenAnalytics }) {
       {/* ── Existing summary cards (unchanged) ── */}
       <div className="grid gap-4 md:grid-cols-3">
         {[
-          { label: 'Total entries',   value: summary.totalEntries.toLocaleString() },
-          { label: 'Total exits',     value: summary.totalExits.toLocaleString() },
-          { label: 'Active sensors',  value: String(summary.activeSensors) },
+          { label: 'Total entries',   value: arNum(summary.totalEntries) },
+          { label: 'Total exits',     value: arNum(summary.totalExits) },
+          { label: 'Active sensors',  value: arNum(summary.activeSensors) },
         ].map((item) => (
           <div key={item.label} className="rounded-2xl border border-[#ebebeb] bg-[#fafafa] p-5">
             <p className="text-sm text-[#8f8f8f]">{item.label}</p>
@@ -1216,7 +1217,7 @@ export default function Reports({ token, onOpenAnalytics }) {
         <div className="flex items-center gap-2">
           <ArrowDownToLine size={16} className="text-[#8f8f8f]" />
           {reportResult
-            ? `Report generated · ${reportResult.rows.length.toLocaleString()} reading${reportResult.rows.length !== 1 ? 's' : ''} fetched`
+            ? `Report generated · ${arNum(reportResult.rows.length)} reading${reportResult.rows.length !== 1 ? 's' : ''} fetched`
             : 'Ready to export the most recent readings from the database.'}
         </div>
         <span className="text-[11px] uppercase tracking-[0.12em] text-[#8f8f8f]">

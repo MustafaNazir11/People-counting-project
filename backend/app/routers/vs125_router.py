@@ -22,6 +22,7 @@ from app.services.vs125_service import (
     resolve_ingest_sensor_id,
     ingest_device_report,
 )
+from app.services.midnight_reset import run_midnight_reset
 
 router = APIRouter(prefix="/sensors/vs125", tags=["VS125"])
 logger = logging.getLogger(__name__)
@@ -344,7 +345,18 @@ async def vs125_device_webhook(request: Request):
     }
 
 
-@router.get("/readings")
+@router.post("/reset-occupancy")
+async def manual_occupancy_reset(
+    target_date: date | None = None,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Manually trigger the midnight occupancy reset for a given date.
+    Defaults to yesterday UTC if no date is supplied.
+    Useful for fixing a stuck counter without restarting the server.
+    """
+    summary = await run_midnight_reset(target_date, triggered_by="manual:api")
+    return summary
 async def get_vs125_readings(
     sensor_id: int | None = None,
     start_date: date | None = None,
@@ -383,6 +395,8 @@ async def get_vs125_readings(
                 SensorLineReading.period_start_at,
                 SensorLineReading.recorded_at,
                 SensorLineReading.received_at,
+                SensorLineReading.is_correction,
+                SensorLineReading.correction_reason,
             )
         )
         .join(Sensor, Sensor.id == SensorLineReading.sensor_id)
@@ -470,6 +484,8 @@ async def get_vs125_readings(
                     row.received_at.isoformat()
                     if row.received_at else None
                 ),
+                "is_correction": row.is_correction,
+                "correction_reason": row.correction_reason,
             }
             for row, store_id, store_name in rows
         ],

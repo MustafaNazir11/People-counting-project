@@ -29,6 +29,8 @@ import {
   YAxis,
 } from 'recharts'
 import { apiFetch } from '../api'
+import { useTranslation } from 'react-i18next'
+import { arNum } from '../utils/arNum'
 import useSensors from '../hooks/useSensors'
 import useStores from '../hooks/useStores'
 
@@ -83,13 +85,13 @@ function getPreviousRange({ startDate, endDate }) {
 
 const PRESETS = [
   {
-    label: 'Today', range: () => {
+    label: 'Today', labelKey: 'analytics.presets.today', range: () => {
       const today = inputDate(new Date())
       return { startDate: today, endDate: today }
     }
   },
   {
-    label: 'Yesterday', range: () => {
+    label: 'Yesterday', labelKey: 'analytics.presets.yesterday', range: () => {
       const yesterday = new Date()
       yesterday.setDate(yesterday.getDate() - 1)
       const date = inputDate(yesterday)
@@ -97,7 +99,7 @@ const PRESETS = [
     }
   },
   {
-    label: 'Last 7 days', range: () => {
+    label: 'Last 7 days', labelKey: 'analytics.presets.last7days', range: () => {
       const end = new Date()
       const start = new Date(end)
       start.setDate(start.getDate() - 6)
@@ -105,7 +107,7 @@ const PRESETS = [
     }
   },
   {
-    label: 'Last 30 days', range: () => {
+    label: 'Last 30 days', labelKey: 'analytics.presets.last30days', range: () => {
       const end = new Date()
       const start = new Date(end)
       start.setDate(start.getDate() - 29)
@@ -113,7 +115,7 @@ const PRESETS = [
     }
   },
   {
-    label: 'This month', range: () => {
+    label: 'This month', labelKey: 'analytics.presets.thisMonth', range: () => {
       const end = new Date()
       return {
         startDate: inputDate(new Date(end.getFullYear(), end.getMonth(), 1)),
@@ -121,7 +123,7 @@ const PRESETS = [
       }
     }
   },
-  { label: 'Custom', range: null },
+  { label: 'Custom', labelKey: 'analytics.presets.custom', range: null },
 ]
 
 const tooltipStyle = {
@@ -143,7 +145,7 @@ function TrendBadge({ value }) {
   return (
     <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium ${positive ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
       {positive ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
-      {Math.abs(value)}%
+      {arNum(Math.abs(value))}%
     </span>
   )
 }
@@ -156,20 +158,21 @@ function Metric({ icon: Icon, label, value, color, loading, unavailable = false 
         <p className="text-sm font-medium text-[#4d4d4d]">{label}</p>
       </div>
       <p className="mt-1.5 pl-[22px] text-xl font-semibold tabular-nums tracking-tight text-[#171717]">
-        {loading ? '—' : unavailable ? 'N/A' : Number(value).toLocaleString()}
+        {loading ? '—' : unavailable ? 'N/A' : arNum(value)}
       </p>
     </div>
   )
 }
 
 function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occupancyError, occupancy, occupancyUpdatedAt }) {
+  const { t } = useTranslation()
   const growthIn = previousTotals.totalIn
     ? Math.round(((totals.totalIn - previousTotals.totalIn) / previousTotals.totalIn) * 100)
     : undefined
   const growthOut = previousTotals.totalOut
     ? Math.round(((totals.totalOut - previousTotals.totalOut) / previousTotals.totalOut) * 100)
     : undefined
-  const shown = (value) => loading ? '—' : value.toLocaleString()
+  const shown = (value) => loading ? '—' : arNum(value)
 
   const occupancyValue = occupancyLoading
     ? '—'
@@ -177,7 +180,7 @@ function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occup
     ? 'Error'
     : occupancy.total === null
     ? 'N/A'
-    : occupancy.total.toLocaleString()
+    : arNum(occupancy.total)
 
   const cardClass = 'relative flex h-full min-h-[300px] flex-col overflow-hidden rounded-2xl border border-[#ebebeb] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6'
 
@@ -185,10 +188,10 @@ function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occup
     <section aria-label="Visitor totals" className="space-y-3">
       {/* Row label + snapshot timestamp */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-medium uppercase tracking-[0.1em] text-[#8f8f8f]">Traffic overview</p>
+        <p className="text-xs font-medium uppercase tracking-[0.1em] text-[#8f8f8f]">{t('analytics.trafficOverview')}</p>
         {occupancyUpdatedAt && (
           <span className="rounded-full border border-[#ebebeb] bg-[#fafafa] px-2.5 py-1 text-[11px] text-[#8f8f8f]">
-            Snapshot · {formatUpdatedAt(occupancyUpdatedAt)}
+            {t('common.snapshot')} · {formatUpdatedAt(occupancyUpdatedAt)}
           </span>
         )}
       </div>
@@ -198,8 +201,8 @@ function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occup
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#007cf0] to-[#00dfd8]" />
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight text-[#171717]">IN</h2>
-              <p className="mt-1 text-sm text-[#8f8f8f]">Total Entries</p>
+              <h2 className="text-xl font-semibold tracking-tight text-[#171717]">{t('analytics.cardIn')}</h2>
+              <p className="mt-1 text-sm text-[#8f8f8f]">{t('analytics.totalEntries')}</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e8f9f0]">
@@ -212,9 +215,9 @@ function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occup
             {shown(totals.totalIn)}
           </p>
           <div className="mt-auto grid grid-cols-3 border-t border-[#ebebeb] pt-5">
-            <div className="flex justify-center"><Metric icon={Mars} label="Male" value={totals.maleIn} loading={loading} color={MALE_COLOR} /></div>
-            <div className="flex justify-center border-x border-[#f2f2f2]"><Metric icon={Venus} label="Female" value={totals.femaleIn} loading={loading} color={FEMALE_COLOR} /></div>
-            <div className="flex justify-center"><Metric icon={Baby} label="Children" value={totals.childrenIn} loading={loading} color={CHILD_COLOR} /></div>
+            <div className="flex justify-center"><Metric icon={Mars} label={t('analytics.male')} value={totals.maleIn} loading={loading} color={MALE_COLOR} /></div>
+            <div className="flex justify-center border-x border-[#f2f2f2]"><Metric icon={Venus} label={t('analytics.female')} value={totals.femaleIn} loading={loading} color={FEMALE_COLOR} /></div>
+            <div className="flex justify-center"><Metric icon={Baby} label={t('analytics.children')} value={totals.childrenIn} loading={loading} color={CHILD_COLOR} /></div>
           </div>
         </article>
 
@@ -222,8 +225,8 @@ function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occup
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#7928ca] to-[#ff0080]" />
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight text-[#171717]">OUT</h2>
-              <p className="mt-1 text-sm text-[#8f8f8f]">Total Exits</p>
+              <h2 className="text-xl font-semibold tracking-tight text-[#171717]">{t('analytics.cardOut')}</h2>
+              <p className="mt-1 text-sm text-[#8f8f8f]">{t('analytics.totalExits')}</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#f3e8ff]">
@@ -236,9 +239,9 @@ function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occup
             {shown(totals.totalOut)}
           </p>
           <div className="mt-auto grid grid-cols-3 border-t border-[#ebebeb] pt-5">
-            <div className="flex justify-center"><Metric icon={Mars} label="Male" value={totals.maleOut} loading={loading} color={MALE_COLOR} /></div>
-            <div className="flex justify-center border-x border-[#f2f2f2]"><Metric icon={Venus} label="Female" value={totals.femaleOut} loading={loading} color={FEMALE_COLOR} /></div>
-            <div className="flex justify-center"><Metric icon={Baby} label="Children" value={totals.childrenOut} loading={loading} color={CHILD_COLOR} /></div>
+            <div className="flex justify-center"><Metric icon={Mars} label={t('analytics.male')} value={totals.maleOut} loading={loading} color={MALE_COLOR} /></div>
+            <div className="flex justify-center border-x border-[#f2f2f2]"><Metric icon={Venus} label={t('analytics.female')} value={totals.femaleOut} loading={loading} color={FEMALE_COLOR} /></div>
+            <div className="flex justify-center"><Metric icon={Baby} label={t('analytics.children')} value={totals.childrenOut} loading={loading} color={CHILD_COLOR} /></div>
           </div>
         </article>
 
@@ -246,8 +249,8 @@ function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occup
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#ff4d4d] to-[#f9cb28]" />
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight text-[#171717]">GROUP</h2>
-              <p className="mt-1 text-sm text-[#8f8f8f]">Groups counted separately</p>
+              <h2 className="text-xl font-semibold tracking-tight text-[#171717]">{t('analytics.cardGroup')}</h2>
+              <p className="mt-1 text-sm text-[#8f8f8f]">{t('analytics.groupCountedSeparately')}</p>
             </div>
             <Users size={20} color="#f5a623" aria-hidden="true" />
           </div>
@@ -256,17 +259,17 @@ function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occup
               <p className="text-5xl font-semibold leading-none tracking-[-1.8px] text-[#171717] tabular-nums">
                 {shown(totals.groupIn)}
               </p>
-              <p className="mt-2 text-sm text-[#8f8f8f]">Group IN</p>
+              <p className="mt-2 text-sm text-[#8f8f8f]">{t('analytics.groupIn')}</p>
             </div>
             <div>
               <p className="text-5xl font-semibold leading-none tracking-[-1.8px] text-[#171717] tabular-nums">
                 {shown(totals.groupOut)}
               </p>
-              <p className="mt-2 text-sm text-[#8f8f8f]">Group OUT</p>
+              <p className="mt-2 text-sm text-[#8f8f8f]">{t('analytics.groupOut')}</p>
             </div>
           </div>
           <p className="mt-auto border-t border-[#ebebeb] pt-5 text-sm leading-relaxed text-[#8f8f8f]">
-            Group counts are reported independently from individual visitors.
+            {t('analytics.groupCountNote')}
           </p>
         </article>
 
@@ -274,8 +277,8 @@ function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occup
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#0070f3] to-[#00dfd8]" />
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight text-[#171717]">NOW</h2>
-              <p className="mt-1 text-sm text-[#8f8f8f]">Current Occupancy</p>
+              <h2 className="text-xl font-semibold tracking-tight text-[#171717]">{t('analytics.cardNow')}</h2>
+              <p className="mt-1 text-sm text-[#8f8f8f]">{t('analytics.currentOccupancy')}</p>
             </div>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#e8f0ff]">
               <Users size={16} color={ENTRY_COLOR} aria-hidden="true" />
@@ -292,7 +295,7 @@ function TrafficCards({ loading, totals, previousTotals, occupancyLoading, occup
             {occupancyValue}
           </p>
           <div className="mt-auto border-t border-[#ebebeb] pt-5">
-            <p className="text-sm text-[#8f8f8f]">Sensor-reported occupancy</p>
+            <p className="text-sm text-[#8f8f8f]">{t('analytics.sensorReportedOccupancy')}</p>
           </div>
         </article>
       </div>
@@ -333,6 +336,7 @@ function FemaleSilhouette() {
 
 // ─── Redesigned Gender Distribution ─────────────────────────────────────────
 function GenderDistribution({ totals, loading }) {
+  const { t } = useTranslation()
   const [chartView, setChartView] = useState('bar') // 'bar' | 'pie'
 
   const maleCount   = totals.maleIn
@@ -344,20 +348,20 @@ function GenderDistribution({ totals, loading }) {
   const femalePercent = hasData ? (femaleCount  / total) * 100 : 0
 
   const barData = [
-    { label: 'Male',   value: maleCount,   color: MALE_COLOR },
-    { label: 'Female', value: femaleCount,  color: FEMALE_COLOR },
+    { label: t('analytics.male'),   value: maleCount,   color: MALE_COLOR },
+    { label: t('analytics.female'), value: femaleCount,  color: FEMALE_COLOR },
   ]
 
   const pieData = [
-    { name: 'Male',   value: maleCount },
-    { name: 'Female', value: femaleCount },
+    { name: t('analytics.male'),   value: maleCount },
+    { name: t('analytics.female'), value: femaleCount },
   ]
 
   return (
     <section className="rounded-2xl border border-[#ebebeb] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6">
       <SectionHeading
-        title="Gender Distribution"
-        description="Male vs Female visitors — visitor count and percentage of total entries."
+        title={t('analytics.genderDistribution')}
+        description={t('analytics.genderDistributionDesc')}
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -368,17 +372,17 @@ function GenderDistribution({ totals, loading }) {
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#dbeafe]">
               <Mars size={14} color={MALE_COLOR} />
             </div>
-            <span className="text-sm font-semibold text-[#0070f3]">Male</span>
+            <span className="text-sm font-semibold text-[#0070f3]">{t('analytics.male')}</span>
           </div>
           <div className="flex h-24 w-12 items-center justify-center">
             <MaleSilhouette />
           </div>
           <div className="text-center">
             <p className="text-3xl font-semibold tabular-nums tracking-tight text-[#171717]">
-              {loading ? '—' : maleCount.toLocaleString()}
+              {loading ? '—' : arNum(maleCount)}
             </p>
             <p className="mt-0.5 text-lg font-medium tabular-nums text-[#0070f3]">
-              {loading ? '—' : `${malePercent.toFixed(1)}%`}
+              {loading ? '—' : `${arNum(malePercent.toFixed(1))}%`}
             </p>
           </div>
           <div className="w-full">
@@ -397,17 +401,17 @@ function GenderDistribution({ totals, loading }) {
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#fce7f3]">
               <Venus size={14} color={FEMALE_COLOR} />
             </div>
-            <span className="text-sm font-semibold text-[#eb367f]">Female</span>
+            <span className="text-sm font-semibold text-[#eb367f]">{t('analytics.female')}</span>
           </div>
           <div className="flex h-24 w-12 items-center justify-center">
             <FemaleSilhouette />
           </div>
           <div className="text-center">
             <p className="text-3xl font-semibold tabular-nums tracking-tight text-[#171717]">
-              {loading ? '—' : femaleCount.toLocaleString()}
+              {loading ? '—' : arNum(femaleCount)}
             </p>
             <p className="mt-0.5 text-lg font-medium tabular-nums text-[#eb367f]">
-              {loading ? '—' : `${femalePercent.toFixed(1)}%`}
+              {loading ? '—' : `${arNum(femalePercent.toFixed(1))}%`}
             </p>
           </div>
           <div className="w-full">
@@ -423,7 +427,7 @@ function GenderDistribution({ totals, loading }) {
         {/* ── Gender Analytics tile ── */}
         <div className="rounded-xl border border-[#ebebeb] bg-white p-5">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-[#171717]">Gender Analytics</p>
+            <p className="text-sm font-semibold text-[#171717]">{t('analytics.genderAnalytics')}</p>
             {/* Graph / Pie toggle */}
             <div className="flex gap-0.5 rounded-lg border border-[#ebebeb] bg-[#fafafa] p-0.5">
               <button
@@ -437,7 +441,7 @@ function GenderDistribution({ totals, loading }) {
                 }`}
               >
                 <BarChart2 size={11} />
-                Graph
+                {t('analytics.graph')}
               </button>
               <button
                 type="button"
@@ -450,14 +454,14 @@ function GenderDistribution({ totals, loading }) {
                 }`}
               >
                 <PieChartIcon size={11} />
-                Pie Chart
+                {t('analytics.pieChart')}
               </button>
             </div>
           </div>
 
           {loading ? (
             <div className="flex h-[180px] items-center justify-center text-sm text-[#8f8f8f]">
-              Loading…
+              {t('common.loading')}
             </div>
           ) : chartView === 'bar' ? (
             <div className="h-[180px] w-full">
@@ -469,18 +473,18 @@ function GenderDistribution({ totals, loading }) {
                     tickLine={false}
                     axisLine={false}
                     tick={{ fill: '#8f8f8f', fontSize: 11 }}
-                    label={{ value: 'Gender', position: 'insideBottom', offset: -12, fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }}
+                    label={{ value: t('analytics.gender'), position: 'insideBottom', offset: -12, fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }}
                   />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
                     tick={{ fill: '#8f8f8f', fontSize: 10 }}
-                    tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}
+                    tickFormatter={(v) => v >= 1000 ? `${arNum((v / 1000).toFixed(1))}k` : arNum(v)}
                     allowDecimals={false}
                     domain={hasData ? [0, 'auto'] : [0, 10]}
-                    label={{ value: 'Visitor Count', angle: -90, position: 'insideLeft', offset: 10, fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }}
+                    label={{ value: t('analytics.visitorCount'), angle: -90, position: 'insideLeft', offset: 10, fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }}
                   />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [Number(v).toLocaleString()]} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [arNum(v)]} />
                   <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={52}>
                     {barData.map((entry, i) => (
                       <Cell key={i} fill={hasData ? entry.color : '#e5e7eb'} />
@@ -508,7 +512,7 @@ function GenderDistribution({ totals, loading }) {
                   </Pie>
                   <Tooltip
                     contentStyle={tooltipStyle}
-                    formatter={(v, name) => [Number(v).toLocaleString(), name]}
+                    formatter={(v, name) => [arNum(v), name]}
                   />
                   <Legend
                     iconType="circle"
@@ -525,7 +529,7 @@ function GenderDistribution({ totals, loading }) {
                 <svg width="120" height="120" viewBox="0 0 120 120" aria-hidden="true">
                   <circle cx="60" cy="60" r="46" fill="none" stroke="#e5e7eb" strokeWidth="16" />
                 </svg>
-                <p className="absolute text-[11px] text-[#a1a1a1]">No data</p>
+                <p className="absolute text-[11px] text-[#a1a1a1]">{t('common.noData')}</p>
               </div>
             </div>
           )}
@@ -533,33 +537,34 @@ function GenderDistribution({ totals, loading }) {
           {!loading && (
             <p className="mt-2 text-[11px] text-[#a1a1a1]">
               {hasData
-                ? `Based on ${total.toLocaleString()} total entries`
-                : 'No entries available for this date range'}
+                ? t('analytics.basedOnEntries', { count: arNum(total) })
+                : t('analytics.noEntriesRange')}
             </p>
           )}
         </div>
       </div>
 
       <p className="mt-4 text-xs text-[#8f8f8f]">
-        Percentages use corrected aggregated gender counts divided by total entries.
+        {t('analytics.genderPercentNote')}
       </p>
     </section>
   )
 }
 
 function ChildrenAnalytics({ loading, totals }) {
+  const { t } = useTranslation()
   const hasData = (totals?.childrenIn ?? 0) > 0 || (totals?.childrenOut ?? 0) > 0
 
   return (
     <section className="rounded-2xl border border-[#ebebeb] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6">
       <SectionHeading
-        title="Children Analytics"
-        description="Children are kept separate from male and female visitor counts."
+        title={t('analytics.childrenAnalytics')}
+        description={t('analytics.childrenAnalyticsDesc')}
       />
       <div className="grid gap-4 sm:grid-cols-2">
         {[
-          { label: 'Children Entries', icon: ArrowDownRight, value: totals?.childrenIn  ?? 0 },
-          { label: 'Children Exits',   icon: ArrowUpRight,   value: totals?.childrenOut ?? 0 },
+          { label: t('analytics.childrenEntries'), icon: ArrowDownRight, value: totals?.childrenIn  ?? 0 },
+          { label: t('analytics.childrenExits'),   icon: ArrowUpRight,   value: totals?.childrenOut ?? 0 },
         ].map(({ label, icon: Icon, value }) => (
           <div key={label} className="rounded-xl border border-[#f2f2f2] bg-[#fafafa] p-4">
             <div className="flex items-center gap-2">
@@ -568,7 +573,7 @@ function ChildrenAnalytics({ loading, totals }) {
             </div>
             <div className="mt-4 flex items-center justify-between gap-3">
               <span className="text-2xl font-semibold text-[#171717] tabular-nums">
-                {loading ? '—' : Number(value).toLocaleString()}
+                {loading ? '—' : arNum(value)}
               </span>
               <Icon size={18} color={CHILD_COLOR} aria-hidden="true" />
             </div>
@@ -577,7 +582,7 @@ function ChildrenAnalytics({ loading, totals }) {
       </div>
       {!loading && !hasData && (
         <p className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-800">
-          No children detected in the selected date range.
+          {t('analytics.noChildrenRange')}
         </p>
       )}
     </section>
@@ -592,13 +597,14 @@ function formatUpdatedAt(value) {
 
 // ─── Redesigned compact Occupancy card ───────────────────────────────────────
 function Occupancy({ loading, error, occupancy, updatedAt }) {
+  const { t } = useTranslation()
   const displayValue = loading
     ? '—'
     : error
     ? 'Error'
     : occupancy.total === null
     ? 'N/A'
-    : occupancy.total.toLocaleString()
+    : arNum(occupancy.total)
 
   return (
     <section className="rounded-2xl border border-[#d3e5ff] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6">
@@ -608,13 +614,13 @@ function Occupancy({ loading, error, occupancy, updatedAt }) {
             <Users size={18} color={ENTRY_COLOR} aria-hidden="true" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-[#171717]">Current Store Occupancy</p>
-            <p className="text-xs text-[#8f8f8f]">Latest VS125 cumulative line snapshots</p>
+            <p className="text-sm font-semibold text-[#171717]">{t('analytics.currentStoreOccupancy')}</p>
+            <p className="text-xs text-[#8f8f8f]">{t('analytics.latestSnapshots')}</p>
           </div>
         </div>
         {updatedAt && (
           <span className="shrink-0 rounded-full border border-[#ebebeb] bg-[#fafafa] px-2.5 py-1 text-[11px] text-[#8f8f8f]">
-            Snapshot · {formatUpdatedAt(updatedAt)}
+            {t('common.snapshot')} · {formatUpdatedAt(updatedAt)}
           </span>
         )}
       </div>
@@ -627,11 +633,11 @@ function Occupancy({ loading, error, occupancy, updatedAt }) {
 
       <div className="mt-4 flex items-end gap-4">
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#8f8f8f]">Current people inside</p>
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[#8f8f8f]">{t('analytics.currentPeopleInside')}</p>
           <p className="mt-1 text-4xl font-semibold tabular-nums tracking-tight text-[#171717]">
             {displayValue}
           </p>
-          <p className="mt-1 text-xs text-[#a1a1a1]">Sensor-reported occupancy</p>
+          <p className="mt-1 text-xs text-[#a1a1a1]">{t('analytics.sensorReportedOccupancy')}</p>
         </div>
         <div className="mb-1 ml-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f5f9ff]">
           <Users size={22} color={ENTRY_COLOR} aria-hidden="true" />
@@ -642,11 +648,12 @@ function Occupancy({ loading, error, occupancy, updatedAt }) {
 }
 
 function ChartToggle({ value, onChange }) {
+  const { t } = useTranslation()
   return (
     <div className="flex gap-0.5 rounded-lg border border-[#ebebeb] bg-[#fafafa] p-0.5">
       {[
-        { key: 'bar',  icon: <BarChart2 size={14} />,    label: 'Bar' },
-        { key: 'line', icon: <ArrowUpRight size={14} />, label: 'Line' },
+        { key: 'bar',  icon: <BarChart2 size={14} />,    label: t('analytics.bar') },
+        { key: 'line', icon: <ArrowUpRight size={14} />, label: t('analytics.line') },
       ].map(({ key, icon, label }) => (
         <button
           key={key}
@@ -667,12 +674,13 @@ function ChartToggle({ value, onChange }) {
 }
 
 function StoreComparisonChart({ data, loading }) {
+  const { t } = useTranslation()
   if (loading) {
     return (
       <section className="rounded-2xl border border-[#ebebeb] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6">
-        <SectionHeading title="Store Comparison" description="Total people who entered by store in the selected date range." />
+        <SectionHeading title={t('analytics.storeComparison')} description={t('analytics.storeComparisonDesc')} />
         <div className="flex h-[300px] items-center justify-center rounded-xl border border-dashed border-[#ebebeb] text-sm text-[#8f8f8f]">
-          Loading store comparison…
+          {t('analytics.loadingStoreComparison')}
         </div>
       </section>
     )
@@ -680,16 +688,16 @@ function StoreComparisonChart({ data, loading }) {
   if (!data.length) {
     return (
       <section className="rounded-2xl border border-[#ebebeb] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6">
-        <SectionHeading title="Store Comparison" description="Total people who entered by store in the selected date range." />
+        <SectionHeading title={t('analytics.storeComparison')} description={t('analytics.storeComparisonDesc')} />
         <div className="flex h-[300px] items-center justify-center rounded-xl border border-dashed border-[#ebebeb] text-sm text-[#8f8f8f]">
-          No store traffic is available for this range.
+          {t('analytics.noStoreTraffic')}
         </div>
       </section>
     )
   }
   return (
     <section className="rounded-2xl border border-[#ebebeb] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6">
-      <SectionHeading title="Store Comparison" description="Total people who entered by store in the selected date range." />
+      <SectionHeading title={t('analytics.storeComparison')} description={t('analytics.storeComparisonDesc')} />
       <div className="h-[320px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 16, right: 12, left: 20, bottom: 40 }}>
@@ -702,18 +710,18 @@ function StoreComparisonChart({ data, loading }) {
               angle={-18}
               textAnchor="end"
               height={56}
-              label={{ value: 'Store', position: 'insideBottom', offset: -4, fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }}
+              label={{ value: t('common.store'), position: 'insideBottom', offset: -4, fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }}
             />
             <YAxis
               tickLine={false}
               axisLine={false}
               tick={{ fill: '#8f8f8f', fontSize: 11 }}
-              tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}
+              tickFormatter={(v) => v >= 1000 ? `${arNum((v / 1000).toFixed(1))}k` : arNum(v)}
               width={52}
               allowDecimals={false}
-              label={{ value: 'Visitors Entered', angle: -90, position: 'insideLeft', offset: 10, fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }}
+              label={{ value: t('analytics.visitorsEntered'), angle: -90, position: 'insideLeft', offset: 10, fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }}
             />
-            <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#4d4d4d', fontWeight: 600 }} formatter={(v) => [Number(v).toLocaleString(), 'Total people entered']} />
+            <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#4d4d4d', fontWeight: 600 }} formatter={(v) => [arNum(v), t('analytics.totalPeopleEntered')]} />
             <Bar dataKey="total" radius={[8, 8, 0, 0]} fill="#0070f3" />
           </BarChart>
         </ResponsiveContainer>
@@ -723,14 +731,15 @@ function StoreComparisonChart({ data, loading }) {
 }
 
 function DailyTrafficChart({ data, loading, startDate, endDate }) {
+  const { t } = useTranslation()
   const [chartType, setChartType] = useState('bar')
-  const tickFormatter = (value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
+  const tickFormatter = (value) => value >= 1000 ? `${arNum((value / 1000).toFixed(1))}k` : arNum(value)
 
   return (
     <section className="rounded-2xl border border-[#ebebeb] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6">
       <SectionHeading
-        title="Daily Traffic"
-        description={`Entries and exits by day · ${dateLabel(startDate)} – ${dateLabel(endDate)}`}
+        title={t('analytics.dailyTraffic')}
+        description={t('analytics.dailyTrafficDesc', { start: dateLabel(startDate), end: dateLabel(endDate) })}
         action={<ChartToggle value={chartType} onChange={setChartType} />}
       />
       {!loading && data.length > 0 ? (
@@ -739,20 +748,20 @@ function DailyTrafficChart({ data, loading, startDate, endDate }) {
             {chartType === 'bar' ? (
               <BarChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 20 }} barGap={3}>
                 <CartesianGrid stroke="#ebebeb" strokeDasharray="4 4" vertical={false} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: '#8f8f8f', fontSize: 11 }} interval="preserveStartEnd" label={{ value: 'Days', position: 'insideBottom', offset: -12, fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }} />
-                <YAxis tickLine={false} axisLine={false} tick={{ fill: '#8f8f8f', fontSize: 11 }} tickFormatter={tickFormatter} width={48} allowDecimals={false} label={{ value: 'Visitor Count', angle: -90, position: 'insideLeft', fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }} />
-                <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#4d4d4d', fontWeight: 600, marginBottom: 4 }} formatter={(value, name) => [Number(value).toLocaleString(), name === 'entries' ? 'Entries' : 'Exits']} />
-                <Legend iconType="circle" iconSize={8} formatter={(name) => name === 'entries' ? 'Entries' : 'Exits'} wrapperStyle={{ fontSize: 12, color: '#8f8f8f', paddingTop: 12 }} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: '#8f8f8f', fontSize: 11 }} interval="preserveStartEnd" label={{ value: t('analytics.days'), position: 'insideBottom', offset: -12, fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }} />
+                <YAxis tickLine={false} axisLine={false} tick={{ fill: '#8f8f8f', fontSize: 11 }} tickFormatter={tickFormatter} width={48} allowDecimals={false} label={{ value: t('analytics.visitorCount'), angle: -90, position: 'insideLeft', fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }} />
+                <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#4d4d4d', fontWeight: 600, marginBottom: 4 }} formatter={(value, name) => [arNum(value), name === 'entries' ? t('analytics.entries') : t('analytics.exits')]} />
+                <Legend iconType="circle" iconSize={8} formatter={(name) => name === 'entries' ? t('analytics.entries') : t('analytics.exits')} wrapperStyle={{ fontSize: 12, color: '#8f8f8f', paddingTop: 12 }} />
                 <Bar dataKey="entries" name="entries" fill={ENTRY_COLOR} radius={[4, 4, 0, 0]} maxBarSize={24} />
                 <Bar dataKey="exits"   name="exits"   fill={EXIT_COLOR}  radius={[4, 4, 0, 0]} maxBarSize={24} />
               </BarChart>
             ) : (
               <LineChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 20 }}>
                 <CartesianGrid stroke="#ebebeb" strokeDasharray="4 4" vertical={false} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: '#8f8f8f', fontSize: 11 }} interval="preserveStartEnd" label={{ value: 'Days', position: 'insideBottom', offset: -12, fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }} />
-                <YAxis tickLine={false} axisLine={false} tick={{ fill: '#8f8f8f', fontSize: 11 }} tickFormatter={tickFormatter} width={48} allowDecimals={false} label={{ value: 'Visitor Count', angle: -90, position: 'insideLeft', fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }} />
-                <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#4d4d4d', fontWeight: 600, marginBottom: 4 }} formatter={(value, name) => [Number(value).toLocaleString(), name === 'entries' ? 'Entries' : 'Exits']} />
-                <Legend iconType="circle" iconSize={8} formatter={(name) => name === 'entries' ? 'Entries' : 'Exits'} wrapperStyle={{ fontSize: 12, color: '#8f8f8f', paddingTop: 12 }} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: '#8f8f8f', fontSize: 11 }} interval="preserveStartEnd" label={{ value: t('analytics.days'), position: 'insideBottom', offset: -12, fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }} />
+                <YAxis tickLine={false} axisLine={false} tick={{ fill: '#8f8f8f', fontSize: 11 }} tickFormatter={tickFormatter} width={48} allowDecimals={false} label={{ value: t('analytics.visitorCount'), angle: -90, position: 'insideLeft', fill: '#4d4d4d', fontSize: 12, fontWeight: 500 }} />
+                <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#4d4d4d', fontWeight: 600, marginBottom: 4 }} formatter={(value, name) => [arNum(value), name === 'entries' ? t('analytics.entries') : t('analytics.exits')]} />
+                <Legend iconType="circle" iconSize={8} formatter={(name) => name === 'entries' ? t('analytics.entries') : t('analytics.exits')} wrapperStyle={{ fontSize: 12, color: '#8f8f8f', paddingTop: 12 }} />
                 <Line type="monotone" dataKey="entries" name="entries" stroke={ENTRY_COLOR} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
                 <Line type="monotone" dataKey="exits"   name="exits"   stroke={EXIT_COLOR}  strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
               </LineChart>
@@ -761,7 +770,7 @@ function DailyTrafficChart({ data, loading, startDate, endDate }) {
         </div>
       ) : (
         <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed border-[#ebebeb] text-sm text-[#8f8f8f]">
-          {loading ? 'Loading sensor readings…' : 'No dates are available to display.'}
+          {loading ? t('analytics.loadingReadings') : t('analytics.noDatesAvailable')}
         </div>
       )}
     </section>
@@ -785,6 +794,7 @@ function FilterSelect({ label, value, onChange, children, disabled = false }) {
 }
 
 export default function Analytics({ token }) {
+  const { t } = useTranslation()
   const [draftRange, setDraftRange] = useState(defaultRange)
   const [dateRange, setDateRange] = useState(defaultRange)
   const [rangeError, setRangeError] = useState('')
@@ -1039,7 +1049,7 @@ export default function Analytics({ token }) {
   function applyRange(event) {
     event.preventDefault()
     if (draftRange.endDate < draftRange.startDate) {
-      setRangeError('The end date must be on or after the start date.')
+      setRangeError(t('common.endDateError'))
       return
     }
     setRangeError('')
@@ -1064,43 +1074,43 @@ export default function Analytics({ token }) {
     <div className="space-y-6" style={{ fontFamily: 'Geist, Inter, Arial, sans-serif' }}>
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-[-1.28px] text-[#171717]">Analytics</h1>
-          <p className="mt-1 text-sm text-[#8f8f8f]">Visitor activity and current occupancy from your VS125 sensor.</p>
+          <h1 className="text-3xl font-semibold tracking-[-1.28px] text-[#171717]">{t('analytics.title')}</h1>
+          <p className="mt-1 text-sm text-[#8f8f8f]">{t('analytics.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2 rounded-full border border-[#ebebeb] bg-white px-3 py-2 text-sm text-[#4d4d4d]">
           <span className={`h-2 w-2 shrink-0 rounded-full ${onlineCount > 0 ? 'bg-emerald-500' : 'bg-[#a1a1a1]'}`} />
           {loading
-            ? 'Loading…'
+            ? t('common.loading')
             : occupancy.updatedAt
-              ? `Last updated · ${new Date(occupancy.updatedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
-              : 'No data yet'}
+              ? t('analytics.lastUpdated', { time: new Date(occupancy.updatedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) })
+              : t('analytics.noDataYet')}
         </div>
       </header>
 
       <section className="rounded-2xl border border-[#ebebeb] bg-white p-4 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-5">
         <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-[#171717]">
           <Store size={17} color="#8f8f8f" aria-hidden="true" />
-          Filters
+          {t('common.filters')}
         </div>
 
         {/* Row 1 — Selection Filters */}
         <div className="grid gap-3 sm:grid-cols-3">
           <FilterSelect
-            label="Store"
+            label={t('common.store')}
             value={storeId}
             onChange={(value) => { setStoreId(value); setSensorId('all'); setSelectedLine('all') }}
             disabled={storesLoading}
           >
-            <option value="all">All stores</option>
+            <option value="all">{t('common.allStores')}</option>
             {stores.map((store) => <option key={store.id} value={String(store.id)}>{store.name}</option>)}
           </FilterSelect>
           <FilterSelect
-            label="Sensor"
+            label={t('common.sensor')}
             value={sensorId}
             onChange={(value) => { setSensorId(value); setSelectedLine('all') }}
             disabled={sensorsLoading}
           >
-            <option value="all">All sensors</option>
+            <option value="all">{t('common.allSensors')}</option>
             {availableSensors.map((sensor) => (
               <option key={sensor.id} value={String(sensor.id)}>
                 {sensor.name || `Sensor ${sensor.id}`}
@@ -1108,12 +1118,12 @@ export default function Analytics({ token }) {
             ))}
           </FilterSelect>
           <FilterSelect
-            label="Counting line"
+            label={t('common.countingLine')}
             value={selectedLine}
             onChange={setSelectedLine}
             disabled={loading || lineOptions.length === 0}
           >
-            <option value="all">All counting lines</option>
+            <option value="all">{t('common.allLines')}</option>
             {lineOptions.map((line) => (
               <option key={line.key} value={line.key}>
                 {sensorId === 'all' ? `${line.sensor} · ${line.name}` : line.name}
@@ -1139,7 +1149,7 @@ export default function Analytics({ token }) {
                     : 'border-[#ebebeb] bg-white text-[#4d4d4d] hover:bg-[#fafafa]'
                 }`}
               >
-                {preset.label}
+                {t(preset.labelKey)}
               </button>
             ))}
           </div>
@@ -1151,7 +1161,7 @@ export default function Analytics({ token }) {
             className="inline-flex h-10 items-center gap-2 rounded-md border border-[#ebebeb] bg-white px-3 text-sm font-medium text-[#4d4d4d] shadow-[0px_1px_1px_rgba(0,0,0,0.04)] transition-colors hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-            Refresh
+            {t('common.refresh')}
           </button>
         </div>
 
@@ -1160,7 +1170,7 @@ export default function Analytics({ token }) {
           <div className="mt-4 border-t border-[#f2f2f2] pt-4">
             <form onSubmit={applyRange} className="flex flex-wrap items-end gap-3">
               <label className="grid gap-1 text-xs font-medium text-[#8f8f8f]">
-                From
+                {t('common.from')}
                 <input
                   type="date"
                   value={draftRange.startDate}
@@ -1170,7 +1180,7 @@ export default function Analytics({ token }) {
                 />
               </label>
               <label className="grid gap-1 text-xs font-medium text-[#8f8f8f]">
-                To
+                {t('common.to')}
                 <input
                   type="date"
                   value={draftRange.endDate}
@@ -1181,7 +1191,7 @@ export default function Analytics({ token }) {
               </label>
               <button type="submit" className="inline-flex h-10 items-center gap-2 rounded-md bg-[#171717] px-3 text-sm font-medium text-white transition-opacity hover:opacity-80">
                 <CalendarDays size={15} />
-                Apply dates
+                {t('common.applyDates')}
               </button>
               {rangeError && <p role="alert" className="basis-full text-xs text-[#ee0000]">{rangeError}</p>}
             </form>
@@ -1194,8 +1204,8 @@ export default function Analytics({ token }) {
           <AlertCircle size={17} className="mt-0.5 shrink-0" />
           <div className="space-y-1">
             {loadError   && <p>{loadError}</p>}
-            {storesError  && <p>Store filters: {storesError}</p>}
-            {sensorsError && <p>Sensor filters: {sensorsError}</p>}
+            {storesError  && <p>{t('common.store')} {storesError}</p>}
+            {sensorsError && <p>{t('common.sensor')} {sensorsError}</p>}
           </div>
         </div>
       )}

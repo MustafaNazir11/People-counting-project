@@ -6,6 +6,7 @@ import {
   RefreshCw,
   Search,
 } from 'lucide-react'
+import { arNum } from '../utils/arNum'
 import SensorDetails from '../components/sensors/SensorDetails'
 import useSensorDetails from '../hooks/useSensorDetails'
 import useSensors from '../hooks/useSensors'
@@ -116,8 +117,8 @@ export default function Sensors({ token }) {
           <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5">
             <p className="text-xs text-slate-500">Registered</p>
             <p className="mt-0.5 text-lg font-semibold text-slate-900">
-              {sensors.length}
-              <span className="ml-2 text-xs font-medium text-emerald-700">{onlineCount} online</span>
+              {arNum(sensors.length)}
+              <span className="ml-2 text-xs font-medium text-emerald-700">{arNum(onlineCount)} online</span>
             </p>
           </div>
           <button

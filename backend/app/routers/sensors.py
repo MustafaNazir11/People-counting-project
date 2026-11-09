@@ -1,8 +1,11 @@
 
-from fastapi import APIRouter, Depends, HTTPException
 import logging
+import os
+from datetime import datetime, timezone
 
-from sqlalchemy import desc, select
+from fastapi import APIRouter, Depends, HTTPException
+
+from sqlalchemy import desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
 
@@ -20,6 +23,96 @@ from app.auth.dependencies import get_current_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+# Seconds without a sensor report before a sensor is considered offline.
+# Default: 300 (5 minutes). Minimum: 30.
+def _offline_timeout_seconds() -> int:
+    try:
+        return max(30, int(os.getenv("SENSOR_OFFLINE_TIMEOUT_SECONDS", "300")))
+    except (TypeError, ValueError):
+        return 300
+
+
+def compute_effective_status(
+    last_seen_at: datetime | None,
+    now: datetime | None = None,
+) -> str:
+    """
+    Return ``"online"`` if *last_seen_at* falls within the offline timeout,
+    otherwise ``"offline"``.  A sensor that has never reported is always
+    offline.
+    """
+    if last_seen_at is None:
+        return "offline"
+
+    if now is None:
+        now = datetime.now(timezone.utc)
+
+    # Normalise both values to timezone-aware UTC for the comparison.
+    if last_seen_at.tzinfo is None:
+        last_seen_at = last_seen_at.replace(tzinfo=timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+
+    age = (now - last_seen_at).total_seconds()
+    return "online" if age <= _offline_timeout_seconds() else "offline"
+
+
+async def mark_stale_sensors_offline() -> dict:
+    """
+    Background-task helper: update the ``status`` column to ``"offline"``
+    for every sensor whose ``last_seen_at`` is older than the timeout (or
+    has never reported).  Returns a small summary dict.
+    """
+    threshold_seconds = _offline_timeout_seconds()
+    now = datetime.now(timezone.utc)
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Sensor.id, Sensor.name).where(
+                Sensor.status == "online",
+                Sensor.is_enabled.is_(True),
+            )
+        )
+        candidates = result.all()
+
+        stale_ids = []
+        for row in candidates:
+            ls_result = await db.execute(
+                select(Sensor.last_seen_at).where(Sensor.id == row.id)
+            )
+            last_seen = ls_result.scalar_one_or_none()
+
+            if last_seen is None:
+                stale_ids.append(row.id)
+                continue
+
+            ls_aware = last_seen
+            if ls_aware.tzinfo is None:
+                ls_aware = ls_aware.replace(tzinfo=timezone.utc)
+            if (now - ls_aware).total_seconds() > threshold_seconds:
+                stale_ids.append(row.id)
+
+        if stale_ids:
+            await db.execute(
+                update(Sensor)
+                .where(Sensor.id.in_(stale_ids))
+                .values(status="offline")
+            )
+            await db.commit()
+            logger.info(
+                "Sensor status: marked %d sensor(s) offline (timeout=%ds): %s",
+                len(stale_ids),
+                threshold_seconds,
+                stale_ids,
+            )
+
+    return {
+        "checked": len(candidates),
+        "marked_offline": len(stale_ids),
+        "timeout_seconds": threshold_seconds,
+    }
 
 
 
@@ -79,12 +172,13 @@ async def get_sensors(
 
     sensors = result.scalars().all()
 
+    now = datetime.now(timezone.utc)
     return [
         {
             "id": sensor.id,
             "name": sensor.name,
             "store_id": sensor.store_id,
-            "status": sensor.status,
+            "status": compute_effective_status(sensor.last_seen_at, now),
         }
         for sensor in sensors
     ]
@@ -150,7 +244,9 @@ async def get_sensor_details(
         "id": sensor.id,
         "name": sensor.name,
         "store_id": sensor.store_id,
-        "status": sensor.status,
+        "status": compute_effective_status(
+            sensor.last_seen_at, datetime.now(timezone.utc)
+        ),
         "serial_number": sensor.serial_number,
         "model": sensor.model,
         "firmware_version": sensor.firmware_version,

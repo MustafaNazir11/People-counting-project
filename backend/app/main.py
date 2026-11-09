@@ -13,15 +13,57 @@ from app.auth.dependencies import get_current_user
 from app.database import Base, engine
 from app.routers import auth, sensors, stores, platform_admin
 from app.routers import vs125_router
+from app.services.midnight_reset import run_midnight_reset
+from app.routers.sensors import mark_stale_sensors_offline
 
 logger = logging.getLogger(__name__)
 
 
+async def _schedule_midnight_reset():
+    """Fire run_midnight_reset every day at 00:01 UTC."""
+    import asyncio
+    from datetime import datetime, timezone
+
+    while True:
+        now = datetime.now(timezone.utc)
+        # Seconds until next 00:01 UTC
+        next_run = now.replace(hour=0, minute=1, second=0, microsecond=0)
+        if next_run <= now:
+            next_run = next_run.replace(day=next_run.day + 1)
+        wait_seconds = (next_run - now).total_seconds()
+        logger.info("Midnight reset scheduler: next run in %.0f s (at %s UTC)", wait_seconds, next_run.isoformat())
+        await asyncio.sleep(wait_seconds)
+        try:
+            summary = await run_midnight_reset(triggered_by="scheduler")
+            logger.info("Midnight reset finished: %s", summary)
+        except Exception:
+            logger.exception("Midnight reset job failed")
+
+
+async def _schedule_sensor_status_check():
+    """Periodically mark sensors offline when they stop reporting."""
+    import asyncio
+
+    while True:
+        await asyncio.sleep(60)
+        try:
+            summary = await mark_stale_sensors_offline()
+            if summary["marked_offline"]:
+                logger.info("Sensor status check: %s", summary)
+        except Exception:
+            logger.exception("Sensor status check failed")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import asyncio
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    reset_task = asyncio.create_task(_schedule_midnight_reset())
+    status_task = asyncio.create_task(_schedule_sensor_status_check())
     yield
+    reset_task.cancel()
+    status_task.cancel()
 
 
 def configured_cors_origins() -> list[str]:

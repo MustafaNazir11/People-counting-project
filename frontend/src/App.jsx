@@ -8,6 +8,7 @@ import { loginManager } from './api'
 import Sensors from './pages/Sensors'
 import Reports from './pages/Reports'
 
+
 function readStoredUser() {
   try {
     return JSON.parse(sessionStorage.getItem('auth_user') || 'null')

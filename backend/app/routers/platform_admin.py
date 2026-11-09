@@ -7,6 +7,7 @@ from jose import jwt, JWTError
 from app.schemas import *
 from app.database import AsyncSessionLocal
 from app.models import *
+from app.routers.sensors import compute_effective_status
 from app.auth.auth import (
     SECRET_KEY,
     ALGORITHM,
@@ -657,7 +658,7 @@ async def create_sensor(
                 "store_id": sensor.store_id,
                 "serial_number": sensor.serial_number,
                 "model": sensor.model,
-                "status": sensor.status,
+                "status": compute_effective_status(sensor.last_seen_at),
                 "is_enabled": sensor.is_enabled,
             },
             "ingest_token": raw_token,
@@ -697,7 +698,7 @@ async def list_store_sensors(
                     "model": sensor.model,
                     "firmware_version": sensor.firmware_version,
                     "ip_address": sensor.ip_address,
-                    "status": sensor.status,
+                    "status": compute_effective_status(sensor.last_seen_at),
                     "is_enabled": sensor.is_enabled,
                     "last_seen_at": sensor.last_seen_at,
                     # "config_synced_at": sensor.config_synced_at,
@@ -757,6 +758,6 @@ async def update_sensor_status(
                 "name": sensor.name,
                 "store_id": sensor.store_id,
                 "is_enabled": sensor.is_enabled,
-                "status": sensor.status,
+                "status": compute_effective_status(sensor.last_seen_at),
             },
         }

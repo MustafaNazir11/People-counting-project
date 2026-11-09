@@ -357,10 +357,13 @@ async def manual_occupancy_reset(
     """
     summary = await run_midnight_reset(target_date, triggered_by="manual:api")
     return summary
+
+
+@router.get("/readings")
 async def get_vs125_readings(
-    sensor_id: int | None = None,
-    start_date: date | None = None,
-    end_date: date | None = None,
+    sensor_id: int | None = Query(default=None),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
     limit: int = Query(default=1000, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     current_user: dict = Depends(get_current_user),

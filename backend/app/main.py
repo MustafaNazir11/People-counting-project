@@ -59,6 +59,14 @@ async def lifespan(app: FastAPI):
     import asyncio
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Idempotent column migrations — safe to run on every startup.
+        await conn.execute(
+            text(
+                "ALTER TABLE sensor_line_readings "
+                "ADD COLUMN IF NOT EXISTS is_correction BOOLEAN NOT NULL DEFAULT false, "
+                "ADD COLUMN IF NOT EXISTS correction_reason VARCHAR(255)"
+            )
+        )
     reset_task = asyncio.create_task(_schedule_midnight_reset())
     status_task = asyncio.create_task(_schedule_sensor_status_check())
     yield

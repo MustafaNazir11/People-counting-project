@@ -395,6 +395,7 @@ async def get_vs125_readings(
                 SensorLineReading.children_in,
                 SensorLineReading.children_out,
                 SensorLineReading.children,
+                SensorLineReading.age_dist,
                 SensorLineReading.period_start_at,
                 SensorLineReading.recorded_at,
                 SensorLineReading.received_at,
@@ -475,6 +476,7 @@ async def get_vs125_readings(
                 "children_in": row.children_in,
                 "children_out": row.children_out,
                 "children": row.children,
+                "age_dist": row.age_dist,
                 "period_start_at": (
                     row.period_start_at.isoformat()
                     if row.period_start_at else None

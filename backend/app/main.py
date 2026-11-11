@@ -67,6 +67,12 @@ async def lifespan(app: FastAPI):
                 "ADD COLUMN IF NOT EXISTS correction_reason VARCHAR(255)"
             )
         )
+        await conn.execute(
+            text(
+                "ALTER TABLE sensor_line_readings "
+                "ADD COLUMN IF NOT EXISTS age_dist INTEGER[] NOT NULL DEFAULT ARRAY[0,0,0,0,0,0,0,0]"
+            )
+        )
     reset_task = asyncio.create_task(_schedule_midnight_reset())
     status_task = asyncio.create_task(_schedule_sensor_status_check())
     yield

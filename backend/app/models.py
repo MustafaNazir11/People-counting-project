@@ -14,7 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY
 
 from app.database import Base
 
@@ -261,6 +261,7 @@ class SensorLineReading(Base):
     group_out: Mapped[int] = mapped_column(Integer, nullable=False)
     children_in: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     children_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    age_dist: Mapped[list[int]] = mapped_column(ARRAY(Integer), nullable=False, default=lambda: [0] * 8)
     period_start_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

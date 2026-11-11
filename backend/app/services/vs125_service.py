@@ -146,6 +146,7 @@ async def receive_vs125_data(request: Request):
                 female_out=line.female_out,
                 group_in=line.group_in,
                 group_out=line.group_out,
+                age_dist=line.age_dist,
                 recorded_at=received_at,
                 received_at=received_at,
             )
@@ -191,6 +192,7 @@ class LineReading(BaseModel):
     female_out: int = Field(ge=0)
     group_in: int = Field(ge=0)
     group_out: int = Field(ge=0)
+    age_dist: list[int] = Field(default_factory=lambda: [0] * 8)
 
 
 class SensorPayload(BaseModel):
@@ -345,6 +347,7 @@ def _build_readings_insert(
             "female_out": line.female_out,
             "group_in": line.group_in,
             "group_out": line.group_out,
+            "age_dist": line.age_dist,
             "recorded_at": recorded_at,
             "received_at": recorded_at,
         }
@@ -503,6 +506,28 @@ def _normalize_device_line(
     female_in += max(0, (_read_count(total, "in", suffix=suffix)) - male_in - female_in)
     female_out += max(0, (_read_count(total, "out", suffix=suffix))  - male_out - female_out)
 
+
+    _AGE_BUCKET_ORDER = [
+        "age_4_12", "age_13_18", "age_19_27", "age_28_35",
+        "age_36_45", "age_46_55", "age_gt_55", "age_unknown",
+    ]
+    age_dist = [0] * 8
+    total_age = line.get("total_age")
+    if isinstance(total_age, list):
+        bucket_map: dict[str, int] = {}
+        for entry in total_age:
+            if not isinstance(entry, dict):
+                continue
+            range_key = entry.get("range")
+            if not isinstance(range_key, str):
+                continue
+            val = entry.get("in", 0)
+            try:
+                bucket_map[range_key] = max(0, int(val))
+            except (TypeError, ValueError):
+                bucket_map[range_key] = 0
+        age_dist = [bucket_map.get(r, 0) for r in _AGE_BUCKET_ORDER]
+
     return {
         "sensor_id": sensor_id,
         "line_id": line_id,
@@ -520,6 +545,7 @@ def _normalize_device_line(
         "children_in": _children_count("in"),
         "children_out": _children_count("out"),
         "children": children,
+        "age_dist": age_dist,
         "period_start_at": period_start,
         "recorded_at": period_end,
         "received_at": received_at,

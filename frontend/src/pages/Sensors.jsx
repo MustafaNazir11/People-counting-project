@@ -6,12 +6,14 @@ import {
   RefreshCw,
   Search,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { arNum } from '../utils/arNum'
 import SensorDetails from '../components/sensors/SensorDetails'
 import useSensorDetails from '../hooks/useSensorDetails'
 import useSensors from '../hooks/useSensors'
 
 function StatusBadge({ status }) {
+  const { t } = useTranslation()
   const normalizedStatus = String(status || '').toLowerCase()
   const online = normalizedStatus === 'online'
   const offline = normalizedStatus === 'offline'
@@ -21,12 +23,13 @@ function StatusBadge({ status }) {
       online ? 'bg-emerald-50 text-emerald-700' : offline ? 'bg-slate-100 text-slate-600' : 'bg-amber-50 text-amber-700'
     }`}>
       <span className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-emerald-500' : offline ? 'bg-slate-400' : 'bg-amber-500'}`} />
-      {online ? 'Online' : offline ? 'Offline' : 'Status unavailable'}
+      {online ? t('sensors.online') : offline ? t('sensors.offline') : t('sensors.statusUnavailable')}
     </span>
   )
 }
 
 function SensorCard({ sensor, onSelect }) {
+  const { t } = useTranslation()
   return (
     <button
       type="button"
@@ -39,22 +42,23 @@ function SensorCard({ sensor, onSelect }) {
             <Camera size={20} />
           </span>
           <div className="min-w-0">
-            <h2 className="truncate font-semibold text-slate-900">{sensor.name || `Sensor ${sensor.id}`}</h2>
-            <p className="mt-1 text-xs text-slate-500">Sensor ID {sensor.id}</p>
+            <h2 className="truncate font-semibold text-slate-900">{sensor.name || `${t('sensors.title')} ${sensor.id}`}</h2>
+            <p className="mt-1 text-xs text-slate-500">{t('sensors.sensorId')} {sensor.id}</p>
           </div>
         </div>
         <ChevronRight size={18} className="mt-1 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-700" />
       </div>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-        <span className="text-sm text-slate-500">Store {sensor.store_id ?? 'Not assigned'}</span>
+        <span className="text-sm text-slate-500">{t('sensors.store')} {sensor.store_id ?? t('sensors.notAssigned')}</span>
         <StatusBadge status={sensor.status} />
       </div>
-      <p className="mt-3 text-xs text-slate-400">View sensor information and readings</p>
+      <p className="mt-3 text-xs text-slate-400">{t('sensors.viewSensorInfo')}</p>
     </button>
   )
 }
 
 export default function Sensors({ token }) {
+  const { t } = useTranslation()
   const {
     sensors,
     loading,
@@ -107,18 +111,18 @@ export default function Sensors({ token }) {
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-slate-500">Device management</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">Sensors</h1>
+          <p className="text-sm font-medium text-slate-500">{t('sensors.deviceManagement')}</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{t('sensors.title')}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Monitor registered sensors and inspect their saved data.
+            {t('sensors.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5">
-            <p className="text-xs text-slate-500">Registered</p>
+            <p className="text-xs text-slate-500">{t('sensors.registered')}</p>
             <p className="mt-0.5 text-lg font-semibold text-slate-900">
               {arNum(sensors.length)}
-              <span className="ml-2 text-xs font-medium text-emerald-700">{arNum(onlineCount)} online</span>
+              <span className="ml-2 text-xs font-medium text-emerald-700">{arNum(onlineCount)} {t('sensors.online')}</span>
             </p>
           </div>
           <button
@@ -128,7 +132,7 @@ export default function Sensors({ token }) {
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
           >
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-            {loading ? 'Refreshing' : 'Refresh'}
+            {loading ? t('sensors.refreshing') : t('sensors.refresh')}
           </button>
         </div>
       </header>
@@ -136,24 +140,24 @@ export default function Sensors({ token }) {
       <div className="flex flex-wrap gap-3">
         <label className="relative min-w-[220px] flex-1">
           <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <span className="sr-only">Search sensors</span>
+          <span className="sr-only">{t('common.search')}</span>
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by name, sensor ID, or store..."
+            placeholder={t('sensors.searchPlaceholder')}
             className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
           />
         </label>
         <label>
-          <span className="sr-only">Filter by status</span>
+          <span className="sr-only">{t('common.filters')}</span>
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
             className="h-full min-h-10 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
           >
-            <option value="all">All statuses</option>
-            <option value="online">Online</option>
-            <option value="offline">Offline</option>
+            <option value="all">{t('sensors.allStatuses')}</option>
+            <option value="online">{t('sensors.online')}</option>
+            <option value="offline">{t('sensors.offline')}</option>
           </select>
         </label>
       </div>
@@ -162,30 +166,30 @@ export default function Sensors({ token }) {
         <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <span className="inline-flex items-center gap-2"><AlertCircle size={17} /> {error}</span>
           <button type="button" onClick={refreshSensors} className="font-semibold underline underline-offset-2">
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       )}
 
       {loading && sensors.length === 0 && (
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-          Loading sensors...
+          {t('sensors.loadingSensors')}
         </div>
       )}
 
       {!loading && !error && sensors.length === 0 && (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
           <span className="mx-auto inline-flex rounded-xl bg-slate-100 p-3 text-slate-500"><Camera size={22} /></span>
-          <h2 className="mt-4 font-semibold text-slate-900">No sensors registered</h2>
+          <h2 className="mt-4 font-semibold text-slate-900">{t('sensors.noSensorsRegistered')}</h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
-            Sensors assigned to stores you can access will appear here.
+            {t('sensors.noSensorsDesc')}
           </p>
         </div>
       )}
 
       {sensors.length > 0 && filteredSensors.length === 0 && (
         <p className="rounded-lg border border-slate-200 bg-white p-5 text-sm text-slate-500">
-          No sensors match the selected search or status filter.
+          {t('sensors.noSensorsMatch')}
         </p>
       )}
 

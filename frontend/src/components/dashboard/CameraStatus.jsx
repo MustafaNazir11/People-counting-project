@@ -1,18 +1,21 @@
 import { Camera } from 'lucide-react'
-
-const sensorStatuses = [
-  ['Front entrance', 'Online'],
-  ['Main floor', 'Online'],
-  ['Back entrance', 'Offline'],
-  ['Warehouse', 'Online'],
-]
+import { useTranslation } from 'react-i18next'
 
 export default function CameraStatus() {
+  const { t } = useTranslation()
+
+  const sensorStatuses = [
+    [t('overview.sensorFrontEntrance'), 'Online'],
+    [t('overview.sensorMainFloor'),     'Online'],
+    [t('overview.sensorBackEntrance'),  'Offline'],
+    [t('overview.sensorWarehouse'),     'Online'],
+  ]
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-6">
-      <h3 className="font-semibold">Sensor status</h3>
+      <h3 className="font-semibold">{t('overview.sensorStatus')}</h3>
       <p className="mt-1 text-sm text-slate-500">
-        Current sensor connectivity
+        {t('overview.sensorConnectivity')}
       </p>
 
       <div className="mt-6 space-y-5">
@@ -23,10 +26,11 @@ export default function CameraStatus() {
               <span className="text-sm">{name}</span>
             </div>
             <span
-              className={`text-xs font-medium ${status === 'Online' ? 'text-emerald-600' : 'text-red-600'
-                }`}
+              className={`text-xs font-medium ${
+                status === 'Online' ? 'text-emerald-600' : 'text-red-600'
+              }`}
             >
-              {status}
+              {status === 'Online' ? t('overview.online') : t('overview.offline')}
             </span>
           </div>
         ))}

@@ -57,7 +57,7 @@ export default function Overview() {
       </div>
 
       <p className="mt-6 text-xs text-slate-400">
-        Demo dashboard · Sample data only · Not connected to your backend yet
+        {t('overview.demoNote')}
       </p>
     </>
   )

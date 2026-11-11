@@ -24,6 +24,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { useTranslation } from 'react-i18next'
 import { apiFetch } from '../api'
 import { arNum } from '../utils/arNum'
 import useStores from '../hooks/useStores'
@@ -46,34 +47,38 @@ export const FESTIVAL_EVENTS = [
 export const METRIC_GROUPS = [
   {
     group: 'People Count',
+    groupKey: 'metricPeopleCount',
     metrics: [
-      { id: 'total_in',       label: 'Total People In',          field: 'individuals_in' },
-      { id: 'total_out',      label: 'Total People Out',         field: 'individuals_out' },
-      { id: 'total_footfall', label: 'Total Footfall (In + Out)', field: null },
+      { id: 'total_in',       label: 'Total People In',          labelKey: 'metricTotalIn',       field: 'individuals_in' },
+      { id: 'total_out',      label: 'Total People Out',         labelKey: 'metricTotalOut',      field: 'individuals_out' },
+      { id: 'total_footfall', label: 'Total Footfall (In + Out)', labelKey: 'metricTotalFootfall', field: null },
     ],
   },
   {
     group: 'Demographics',
+    groupKey: 'metricDemographics',
     metrics: [
-      { id: 'male',       label: 'Male Count',       field: 'male_in' },
-      { id: 'female',     label: 'Female Count',     field: 'female_in' },
-      { id: 'group',      label: 'Group Count',      field: 'group_in' },
-      { id: 'individual', label: 'Individual Count', field: null },
+      { id: 'male',       label: 'Male Count',       labelKey: 'metricMale',       field: 'male_in' },
+      { id: 'female',     label: 'Female Count',     labelKey: 'metricFemale',     field: 'female_in' },
+      { id: 'group',      label: 'Group Count',      labelKey: 'metricGroup',      field: 'group_in' },
+      { id: 'individual', label: 'Individual Count', labelKey: 'metricIndividual', field: null },
     ],
   },
   {
     group: 'Performance',
+    groupKey: 'metricPerformance',
     metrics: [
-      { id: 'peak_hour',   label: 'Peak Hour',               field: null },
-      { id: 'avg_hourly',  label: 'Avg Hourly Footfall',     field: null },
+      { id: 'peak_hour',   label: 'Peak Hour',               labelKey: 'metricPeakHour',  field: null },
+      { id: 'avg_hourly',  label: 'Avg Hourly Footfall',     labelKey: 'metricAvgHourly', field: null },
     ],
   },
   {
     group: 'Comparison',
+    groupKey: 'metricComparison',
     metrics: [
-      { id: 'in_vs_out',         label: 'In vs Out',              field: null },
-      { id: 'male_vs_female',    label: 'Male vs Female',         field: null },
-      { id: 'individual_vs_group', label: 'Individual vs Group',  field: null },
+      { id: 'in_vs_out',           label: 'In vs Out',              labelKey: 'metricInVsOut',           field: null },
+      { id: 'male_vs_female',      label: 'Male vs Female',         labelKey: 'metricMaleVsFemale',      field: null },
+      { id: 'individual_vs_group', label: 'Individual vs Group',    labelKey: 'metricIndividualVsGroup', field: null },
     ],
   },
 ]
@@ -81,11 +86,11 @@ export const METRIC_GROUPS = [
 const ALL_METRICS = METRIC_GROUPS.flatMap((g) => g.metrics)
 const COMPARISON_IDS = new Set(['in_vs_out', 'male_vs_female', 'individual_vs_group'])
 
-// ─── Export options (unchanged) ────────────────────────────────────────────
+// ─── Export options ────────────────────────────────────────────────────────
 const exportOptions = [
-  { value: 'pdf',  label: 'PDF',  description: 'Executive summary',  icon: FileText },
-  { value: 'xlsx', label: 'XLSX', description: 'Spreadsheet format', icon: FileSpreadsheet },
-  { value: 'csv',  label: 'CSV',  description: 'Raw data export',    icon: TableProperties },
+  { value: 'pdf',  labelKey: 'PDF',  descKey: 'executiveSummary',   icon: FileText },
+  { value: 'xlsx', labelKey: 'XLSX', descKey: 'spreadsheetFormat',  icon: FileSpreadsheet },
+  { value: 'csv',  labelKey: 'CSV',  descKey: 'rawDataExport',      icon: TableProperties },
 ]
 
 // ─── Static fallback rows (kept intact) ────────────────────────────────────
@@ -357,30 +362,31 @@ function SelectWrapper({ value, onChange, disabled, children }) {
 // Period date inputs ─────────────────────────────────────────────────────────
 
 function PeriodInputs({ periodType, periodState, onChange }) {
+  const { t } = useTranslation()
   const { day, weekDate, month, monthYear, year, customStart, customEnd } = periodState
 
   if (periodType === 'day') return (
-    <FieldRow label="Date">
+    <FieldRow label={t('reports.date')}>
       <input type="date" value={day} max={today()} onChange={(e) => onChange({ day: e.target.value })} className={inputCls} />
     </FieldRow>
   )
 
   if (periodType === 'week') return (
-    <FieldRow label="Any date in the week">
+    <FieldRow label={t('reports.anyDateInWeek')}>
       <input type="date" value={weekDate} max={today()} onChange={(e) => onChange({ weekDate: e.target.value })} className={inputCls} />
     </FieldRow>
   )
 
   if (periodType === 'month') return (
     <div className="flex flex-wrap gap-3">
-      <FieldRow label="Month">
+      <FieldRow label={t('reports.month')}>
         <SelectWrapper value={month} onChange={(v) => onChange({ month: Number(v) })}>
           {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, i) => (
             <option key={m} value={i + 1}>{m}</option>
           ))}
         </SelectWrapper>
       </FieldRow>
-      <FieldRow label="Year">
+      <FieldRow label={t('reports.year')}>
         <SelectWrapper value={monthYear} onChange={(v) => onChange({ monthYear: Number(v) })}>
           {[2024, 2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
         </SelectWrapper>
@@ -389,7 +395,7 @@ function PeriodInputs({ periodType, periodState, onChange }) {
   )
 
   if (periodType === 'year') return (
-    <FieldRow label="Year">
+    <FieldRow label={t('reports.year')}>
       <SelectWrapper value={year} onChange={(v) => onChange({ year: Number(v) })}>
         {[2024, 2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
       </SelectWrapper>
@@ -398,10 +404,10 @@ function PeriodInputs({ periodType, periodState, onChange }) {
 
   if (periodType === 'custom') return (
     <div className="flex flex-wrap gap-3">
-      <FieldRow label="From">
+      <FieldRow label={t('common.from')}>
         <input type="date" value={customStart} max={customEnd || today()} onChange={(e) => onChange({ customStart: e.target.value })} className={inputCls} />
       </FieldRow>
-      <FieldRow label="To">
+      <FieldRow label={t('common.to')}>
         <input type="date" value={customEnd} min={customStart} max={today()} onChange={(e) => onChange({ customEnd: e.target.value })} className={inputCls} />
       </FieldRow>
     </div>
@@ -413,6 +419,7 @@ function PeriodInputs({ periodType, periodState, onChange }) {
 // Metric selector ─────────────────────────────────────────────────────────────
 
 function MetricSelector({ selected, onToggle }) {
+  const { t } = useTranslation()
   // First two groups (People Count + Demographics) sit side-by-side in a 2×2 grid.
   // Performance + Comparison flow below as usual.
   const topGroups  = METRIC_GROUPS.slice(0, 2)
@@ -421,7 +428,7 @@ function MetricSelector({ selected, onToggle }) {
   function GroupPills({ group }) {
     return (
       <div>
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#a1a1a1]">{group.group}</p>
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#a1a1a1]">{t(`reports.${group.groupKey}`)}</p>
         <div className="flex flex-wrap gap-2">
           {group.metrics.map((m) => {
             const active = selected.has(m.id)
@@ -437,7 +444,7 @@ function MetricSelector({ selected, onToggle }) {
                     : 'border-[#ebebeb] bg-white text-[#4d4d4d] hover:border-[#d8d8d8]'
                 }`}
               >
-                {m.label}
+                {t(`reports.${m.labelKey}`)}
               </button>
             )
           })}
@@ -472,11 +479,12 @@ function MetricSelector({ selected, onToggle }) {
 // Event selector ──────────────────────────────────────────────────────────────
 
 function EventSelector({ eventId, eventDates, customName, onEventChange, onDatesChange, onCustomNameChange }) {
+  const { t } = useTranslation()
   const event = FESTIVAL_EVENTS.find((e) => e.id === eventId)
 
   return (
     <div className="space-y-4">
-      <FieldRow label="Event">
+      <FieldRow label={t('reports.event')}>
         <SelectWrapper value={eventId} onChange={onEventChange}>
           {FESTIVAL_EVENTS.map((e) => (
             <option key={e.id} value={e.id}>{e.name}</option>
@@ -485,12 +493,12 @@ function EventSelector({ eventId, eventDates, customName, onEventChange, onDates
       </FieldRow>
 
       {eventId === 'custom' && (
-        <FieldRow label="Event name">
+        <FieldRow label={t('reports.eventName')}>
           <input
             type="text"
             value={customName}
             onChange={(e) => onCustomNameChange(e.target.value)}
-            placeholder="e.g. Eid Shopping"
+            placeholder={t('reports.eventNamePlaceholder')}
             maxLength={80}
             className={inputCls}
           />
@@ -498,7 +506,7 @@ function EventSelector({ eventId, eventDates, customName, onEventChange, onDates
       )}
 
       <div className="flex flex-wrap gap-3">
-        <FieldRow label="Start date">
+        <FieldRow label={t('reports.startDate')}>
           <input
             type="date"
             value={eventDates.start}
@@ -506,7 +514,7 @@ function EventSelector({ eventId, eventDates, customName, onEventChange, onDates
             className={inputCls}
           />
         </FieldRow>
-        <FieldRow label="End date">
+        <FieldRow label={t('reports.endDate')}>
           <input
             type="date"
             value={eventDates.end}
@@ -519,7 +527,7 @@ function EventSelector({ eventId, eventDates, customName, onEventChange, onDates
 
       {event && event.id !== 'custom' && (
         <p className="text-xs text-[#8f8f8f]">
-          Preset dates pre-filled. Edit to match your local festival period.
+          {t('reports.presetDatesNote')}
         </p>
       )}
     </div>
@@ -529,13 +537,14 @@ function EventSelector({ eventId, eventDates, customName, onEventChange, onDates
 // Report results ──────────────────────────────────────────────────────────────
 
 function ComparisonTable({ pairs }) {
+  const { t } = useTranslation()
   return (
     <div className="overflow-hidden rounded-xl border border-[#ebebeb]">
       <table className="min-w-full text-left text-sm">
         <thead className="bg-[#fafafa]">
           <tr>
-            <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8f8f8f]">Metric</th>
-            <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8f8f8f]">Count</th>
+            <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8f8f8f]">{t('reports.metric')}</th>
+            <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8f8f8f]">{t('reports.count')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#f2f2f2]">
@@ -572,6 +581,7 @@ function ComparisonChart({ pairs }) {
 }
 
 function ReportResultsCard({ result, onClearReport }) {
+  const { t } = useTranslation()
   const { agg, rows, metricIds, metricLabel, dateLabel, eventName, store, sensor, line } = result
 
   return (
@@ -581,7 +591,7 @@ function ReportResultsCard({ result, onClearReport }) {
         <div>
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-[#0070f3]" />
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#0070f3]">Report Result</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#0070f3]">{t('reports.reportResult')}</p>
           </div>
           <h2 className="mt-1.5 text-xl font-semibold tracking-[-0.03em] text-[#171717]">
             {eventName ? `${eventName} — ${metricLabel}` : metricLabel}
@@ -598,14 +608,15 @@ function ReportResultsCard({ result, onClearReport }) {
           onClick={onClearReport}
           className="rounded-full border border-[#ebebeb] px-3 py-1.5 text-xs text-[#8f8f8f] hover:border-[#d8d8d8] hover:text-[#4d4d4d]"
         >
-          Clear
+          {t('reports.clear')}
         </button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {metricIds.map((id) => {
           const isComparison = COMPARISON_IDS.has(id)
-          const label = ALL_METRICS.find((m) => m.id === id)?.label ?? id
+          const metricDef = ALL_METRICS.find((m) => m.id === id)
+          const label = metricDef?.labelKey ? t(`reports.${metricDef.labelKey}`) : (metricDef?.label ?? id)
           const pairs = isComparison ? getComparisonPairs(id, agg) : null
           const scalar = !isComparison ? computeScalar(id, agg, rows) : null
           const isPeakHour = id === 'peak_hour'
@@ -628,7 +639,7 @@ function ReportResultsCard({ result, onClearReport }) {
                     {isPeakHour ? (scalar ?? 'N/A') : arNum(scalar)}
                   </p>
                   {!isPeakHour && id !== 'avg_hourly' && (
-                    <p className="mt-1 text-[11px] text-[#a1a1a1]">{arNum(rows.length)} reading{rows.length !== 1 ? 's' : ''}</p>
+                    <p className="mt-1 text-[11px] text-[#a1a1a1]">{arNum(rows.length)} {rows.length !== 1 ? t('sensorDetails.readings') : t('sensorDetails.reading')}</p>
                   )}
                 </>
               )}
@@ -643,6 +654,7 @@ function ReportResultsCard({ result, onClearReport }) {
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export default function Reports({ token, onOpenAnalytics }) {
+  const { t } = useTranslation()
   // ── Existing state ─────────────────────────────────────────────────────────
   const [selectedFormat, setSelectedFormat] = useState('csv')
 
@@ -764,11 +776,11 @@ export default function Reports({ token, onOpenAnalytics }) {
     const [startDate, endDate] = resolveDateRange()
 
     if (!startDate || !endDate) {
-      setReportError('Please select a valid date range.')
+      setReportError(t('reports.dateError'))
       return
     }
     if (startDate > endDate) {
-      setReportError('Start date must be on or before end date.')
+      setReportError(t('reports.startDateError'))
       return
     }
 
@@ -814,7 +826,10 @@ export default function Reports({ token, onOpenAnalytics }) {
       const agg  = aggregateReadings(rows)
 
       const metricIds   = [...selectedMetrics]
-      const metricLabel = metricIds.map((id) => ALL_METRICS.find((m) => m.id === id)?.label ?? id).join(', ')
+      const metricLabel = metricIds.map((id) => {
+        const m = ALL_METRICS.find((m) => m.id === id)
+        return m?.label ?? id
+      }).join(', ')
 
       const storeName  = selectedStoreId  !== 'all' ? stores.find((s)  => String(s.id)  === String(selectedStoreId))?.name  : null
       const sensorName = selectedSensorId !== 'all' ? sensors.find((s) => String(s.id) === String(selectedSensorId))?.name : null
@@ -906,10 +921,10 @@ export default function Reports({ token, onOpenAnalytics }) {
       <header className="rounded-[20px] border border-[#ebebeb] bg-white p-6 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-7">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#8f8f8f]">Reports</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.06em] text-[#171717]">Export visitor reports</h1>
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#8f8f8f]">{t('reports.title')}</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.06em] text-[#171717]">{t('reports.pageTitle')}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#4d4d4d]">
-              Select a file format, review the latest store activity from the database, and export the most recent visitor readings in one click.
+              {t('reports.pageSubtitle')}
             </p>
           </div>
           <button
@@ -917,7 +932,7 @@ export default function Reports({ token, onOpenAnalytics }) {
             onClick={onOpenAnalytics}
             className="inline-flex items-center justify-center rounded-full border border-[#171717] bg-[#171717] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#2b2b2b]"
           >
-            Open Analytics
+            {t('reports.openAnalytics')}
           </button>
         </div>
       </header>
@@ -925,9 +940,9 @@ export default function Reports({ token, onOpenAnalytics }) {
       {/* ── Existing summary cards (unchanged) ── */}
       <div className="grid gap-4 md:grid-cols-3">
         {[
-          { label: 'Total entries',   value: arNum(summary.totalEntries) },
-          { label: 'Total exits',     value: arNum(summary.totalExits) },
-          { label: 'Active sensors',  value: arNum(summary.activeSensors) },
+          { label: t('reports.totalEntries'),  value: arNum(summary.totalEntries) },
+          { label: t('reports.totalExits'),    value: arNum(summary.totalExits) },
+          { label: t('reports.activeSensors'), value: arNum(summary.activeSensors) },
         ].map((item) => (
           <div key={item.label} className="rounded-2xl border border-[#ebebeb] bg-[#fafafa] p-5">
             <p className="text-sm text-[#8f8f8f]">{item.label}</p>
@@ -942,8 +957,8 @@ export default function Reports({ token, onOpenAnalytics }) {
         <div className="mb-5 flex items-center gap-2">
           <BarChart2 size={18} className="text-[#8f8f8f]" />
           <div>
-            <p className="text-sm font-semibold text-[#171717]">Report Filters</p>
-            <p className="text-xs text-[#8f8f8f]">Configure what you want to analyze, then click Generate Report.</p>
+            <p className="text-sm font-semibold text-[#171717]">{t('reports.reportFilters')}</p>
+            <p className="text-xs text-[#8f8f8f]">{t('reports.reportFiltersDesc')}</p>
           </div>
         </div>
 
@@ -953,36 +968,36 @@ export default function Reports({ token, onOpenAnalytics }) {
 
             {/* Left — Store / Sensor / Line */}
             <div className="flex flex-col gap-4 lg:border-r lg:border-[#f2f2f2] lg:pr-8">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#a1a1a1]">Scope</p>
-              <FieldRow label="Store">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#a1a1a1]">{t('reports.scope')}</p>
+              <FieldRow label={t('common.store')}>
                 <SelectWrapper
                   value={selectedStoreId}
                   onChange={setSelectedStoreId}
                   disabled={storesLoading}
                 >
-                  <option value="all">All stores</option>
+                  <option value="all">{t('common.allStores')}</option>
                   {stores.map((s) => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
                 </SelectWrapper>
               </FieldRow>
 
-              <FieldRow label="Sensor">
+              <FieldRow label={t('common.sensor')}>
                 <SelectWrapper
                   value={selectedSensorId}
                   onChange={setSelectedSensorId}
                   disabled={sensorsLoading || filteredSensors.length === 0}
                 >
-                  <option value="all">All sensors</option>
+                  <option value="all">{t('common.allSensors')}</option>
                   {filteredSensors.map((s) => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
                 </SelectWrapper>
               </FieldRow>
 
-              <FieldRow label="Counting line">
+              <FieldRow label={t('common.countingLine')}>
                 <SelectWrapper
                   value={selectedLine}
                   onChange={setSelectedLine}
                   disabled={filteredLines.length === 0}
                 >
-                  <option value="all">All lines</option>
+                  <option value="all">{t('common.allLines')}</option>
                   {filteredLines.map((l) => (
                     <option key={l.key} value={l.key}>
                       {selectedSensorId === 'all' ? `${l.sensor_name} · ${l.line_name}` : l.line_name}
@@ -994,15 +1009,15 @@ export default function Reports({ token, onOpenAnalytics }) {
 
             {/* Right — Report type + period / event inputs */}
             <div className="flex flex-col gap-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#a1a1a1]">Period</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#a1a1a1]">{t('reports.period')}</p>
 
               {/* Report mode toggle */}
               <div>
-                <p className="mb-2 text-xs font-medium text-[#8f8f8f]">Report type</p>
+                <p className="mb-2 text-xs font-medium text-[#8f8f8f]">{t('reports.reportType')}</p>
                 <SegmentedControl
                   options={[
-                    { value: 'standard', label: 'Standard Period' },
-                    { value: 'event',    label: 'Event / Festival' },
+                    { value: 'standard', label: t('reports.standardPeriod') },
+                    { value: 'event',    label: t('reports.eventFestival') },
                   ]}
                   value={reportMode}
                   onChange={setReportMode}
@@ -1013,14 +1028,14 @@ export default function Reports({ token, onOpenAnalytics }) {
               {reportMode === 'standard' && (
                 <div className="flex flex-col gap-4">
                   <div>
-                    <p className="mb-2 text-xs font-medium text-[#8f8f8f]">Time period</p>
+                    <p className="mb-2 text-xs font-medium text-[#8f8f8f]">{t('reports.timePeriod')}</p>
                     <SegmentedControl
                       options={[
-                        { value: 'day',    label: 'Day' },
-                        { value: 'week',   label: 'Week' },
-                        { value: 'month',  label: 'Month' },
-                        { value: 'year',   label: 'Year' },
-                        { value: 'custom', label: 'Custom' },
+                        { value: 'day',    label: t('reports.day') },
+                        { value: 'week',   label: t('reports.week') },
+                        { value: 'month',  label: t('reports.month') },
+                        { value: 'year',   label: t('reports.year') },
+                        { value: 'custom', label: t('reports.custom') },
                       ]}
                       value={periodType}
                       onChange={setPeriodType}
@@ -1054,10 +1069,10 @@ export default function Reports({ token, onOpenAnalytics }) {
           {/* ── Metric selector ── */}
           <div>
             <div className="mb-3 flex items-center gap-2">
-              <p className="text-xs font-medium text-[#8f8f8f]">Report metric</p>
+              <p className="text-xs font-medium text-[#8f8f8f]">{t('reports.reportMetric')}</p>
               {selectedMetrics.size > 1 && (
                 <span className="rounded-full bg-[#171717] px-2 py-0.5 text-[10px] font-semibold text-white">
-                  {selectedMetrics.size} selected
+                  {selectedMetrics.size} {t('reports.selected')}
                 </span>
               )}
             </div>
@@ -1083,7 +1098,7 @@ export default function Reports({ token, onOpenAnalytics }) {
               className="inline-flex items-center gap-2 rounded-full bg-[#171717] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#2b2b2b] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {reportLoading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-              {reportLoading ? 'Generating…' : 'Generate Report'}
+              {reportLoading ? t('reports.generating') : t('reports.generate')}
             </button>
 
             <button
@@ -1093,11 +1108,11 @@ export default function Reports({ token, onOpenAnalytics }) {
               className="inline-flex items-center gap-2 rounded-full border border-[#ebebeb] bg-white px-5 py-2.5 text-sm font-medium text-[#4d4d4d] transition hover:border-[#d8d8d8] hover:bg-[#fafafa] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Mail size={15} />
-              Mail Report
+              {t('reports.mailReport')}
             </button>
 
             {!token && (
-              <p className="text-xs text-[#a1a1a1]">Sign in to generate live reports.</p>
+              <p className="text-xs text-[#a1a1a1]">{t('reports.signInPrompt')}</p>
             )}
           </div>
         </div>
@@ -1115,15 +1130,15 @@ export default function Reports({ token, onOpenAnalytics }) {
       <div className="rounded-[20px] border border-[#ebebeb] bg-white p-5 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-[#171717]">Export format</p>
+            <p className="text-sm font-medium text-[#171717]">{t('reports.exportFormat')}</p>
             <p className="mt-1 text-sm text-[#8f8f8f]">
               {reportResult
-                ? 'Export will include your generated report data and all applied filters.'
-                : 'Choose the file type for your report export.'}
+                ? t('reports.exportFormatDescResult')
+                : t('reports.exportFormatDesc')}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            {exportOptions.map(({ value, label, description, icon: Icon }) => {
+            {exportOptions.map(({ value, labelKey, descKey, icon: Icon }) => {
               const active = selectedFormat === value
               return (
                 <button
@@ -1140,8 +1155,8 @@ export default function Reports({ token, onOpenAnalytics }) {
                     <Icon size={15} />
                   </span>
                   <span>
-                    <span className="block text-sm font-semibold">{label}</span>
-                    <span className={`block text-[11px] ${active ? 'text-white/70' : 'text-[#8f8f8f]'}`}>{description}</span>
+                    <span className="block text-sm font-semibold">{labelKey}</span>
+                    <span className={`block text-[11px] ${active ? 'text-white/70' : 'text-[#8f8f8f]'}`}>{t(`reports.${descKey}`)}</span>
                   </span>
                 </button>
               )
@@ -1153,8 +1168,8 @@ export default function Reports({ token, onOpenAnalytics }) {
           <div className="flex items-center gap-2 text-sm text-[#4d4d4d]">
             <CalendarRange size={16} className="text-[#8f8f8f]" />
             {reportResult
-              ? `Report: ${reportResult.dateLabel}`
-              : `Last sync: ${formatDateTime('2026-11-03T08:45:00Z')}`}
+              ? `${t('reports.reportPrefix')} ${reportResult.dateLabel}`
+              : `${t('reports.lastSync')} ${formatDateTime('2026-11-03T08:45:00Z')}`}
           </div>
           <button
             type="button"
@@ -1162,7 +1177,7 @@ export default function Reports({ token, onOpenAnalytics }) {
             className="inline-flex items-center justify-center gap-2 rounded-full bg-[#171717] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#2b2b2b]"
           >
             <Download size={16} />
-            Download {selectedFormat.toUpperCase()}
+            {t('reports.downloadBtn', { format: selectedFormat.toUpperCase() })}
           </button>
         </div>
       </div>
@@ -1171,11 +1186,11 @@ export default function Reports({ token, onOpenAnalytics }) {
       <div className="rounded-[20px] border border-[#ebebeb] bg-white p-4 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#171717]">Recent database readings</h2>
-            <p className="mt-1 text-sm text-[#8f8f8f]">Latest records with timestamp and store activity data.</p>
+            <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#171717]">{t('reports.recentReadings')}</h2>
+            <p className="mt-1 text-sm text-[#8f8f8f]">{t('reports.recentReadingsDesc')}</p>
           </div>
           <div className="rounded-full border border-[#ebebeb] bg-[#fafafa] px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-[#4d4d4d]">
-            {STATIC_ROWS.length} records
+            {STATIC_ROWS.length} {t('reports.records')}
           </div>
         </div>
 
@@ -1184,7 +1199,16 @@ export default function Reports({ token, onOpenAnalytics }) {
             <table className="min-w-full divide-y divide-[#ebebeb] text-left">
               <thead className="bg-[#fafafa]">
                 <tr>
-                  {['Timestamp', 'Store', 'Sensor', 'Entries', 'Exits', 'Male', 'Female', 'Status'].map((h) => (
+                  {[
+                    t('reports.colTimestamp'),
+                    t('reports.colStore'),
+                    t('reports.colSensor'),
+                    t('reports.colEntries'),
+                    t('reports.colExits'),
+                    t('reports.colMale'),
+                    t('reports.colFemale'),
+                    t('reports.colStatus'),
+                  ].map((h) => (
                     <th key={h} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8f8f8f]">{h}</th>
                   ))}
                 </tr>
@@ -1217,11 +1241,11 @@ export default function Reports({ token, onOpenAnalytics }) {
         <div className="flex items-center gap-2">
           <ArrowDownToLine size={16} className="text-[#8f8f8f]" />
           {reportResult
-            ? `Report generated · ${arNum(reportResult.rows.length)} reading${reportResult.rows.length !== 1 ? 's' : ''} fetched`
-            : 'Ready to export the most recent readings from the database.'}
+            ? t('reports.reportGenerated', { count: arNum(reportResult.rows.length) })
+            : t('reports.readyToExport')}
         </div>
         <span className="text-[11px] uppercase tracking-[0.12em] text-[#8f8f8f]">
-          {reportResult ? 'Live data' : 'Database snapshot'}
+          {reportResult ? t('reports.liveData') : t('reports.dbSnapshot')}
         </span>
       </div>
 

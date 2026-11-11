@@ -1,19 +1,21 @@
 import { Store } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import useStores from '../hooks/useStores'
 
 export default function Stores({ token }) {
   const { stores, loading, error, refresh } = useStores(token)
+  const { t } = useTranslation()
 
   return (
     <div>
-      <h3 className="text-2xl font-semibold">Your Stores</h3>
+      <h3 className="text-2xl font-semibold">{t('stores.title')}</h3>
       <p className="mt-1 text-sm text-slate-500">
-        Stores assigned to your manager account.
+        {t('stores.subtitle')}
       </p>
 
       {loading && (
         <p className="mt-6 text-sm text-slate-500">
-          Loading stores...
+          {t('stores.loading')}
         </p>
       )}
 
@@ -21,14 +23,14 @@ export default function Stores({ token }) {
         <div role="alert" className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <span>{error}</span>
           <button type="button" onClick={refresh} className="font-semibold underline underline-offset-2">
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       )}
 
       {!loading && !error && stores.length === 0 && (
         <p className="mt-6 text-sm text-slate-500">
-          No stores are assigned to your account.
+          {t('stores.noStores')}
         </p>
       )}
 
@@ -46,12 +48,12 @@ export default function Stores({ token }) {
                 <div>
                   <h4 className="font-semibold">{store.name}</h4>
                   <p className="text-sm text-slate-500">
-                    {store.location || 'Location not specified'}
+                    {store.location || t('stores.locationNotSpecified')}
                   </p>
                 </div>
               </div>
               <p className="mt-4 text-xs text-slate-400">
-                Store ID: {store.id}
+                {t('stores.storeId')}: {store.id}
               </p>
             </article>
           ))}

@@ -7,11 +7,12 @@ import {
   RefreshCw,
   Users,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 function formatDate(value) {
-  if (!value) return 'Not available'
+  if (!value) return null
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? 'Not available' : date.toLocaleString()
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleString()
 }
 
 function formatLabel(value) {
@@ -20,12 +21,13 @@ function formatLabel(value) {
     .replace(/\b\w/g, (character) => character.toUpperCase())
 }
 
-function displayValue(value) {
-  if (value == null || value === '') return 'Not available'
+function displayValue(value, notAvailable) {
+  if (value == null || value === '') return notAvailable
   return typeof value === 'object' ? JSON.stringify(value) : String(value)
 }
 
 function StatusBadge({ status }) {
+  const { t } = useTranslation()
   const normalizedStatus = String(status || '').toLowerCase()
   const online = normalizedStatus === 'online'
   const offline = normalizedStatus === 'offline'
@@ -38,17 +40,18 @@ function StatusBadge({ status }) {
   return (
     <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${className}`}>
       <span className={`h-2 w-2 rounded-full ${online ? 'bg-emerald-500' : offline ? 'bg-slate-400' : 'bg-amber-500'}`} />
-      {online ? 'Online' : offline ? 'Offline' : 'Status unavailable'}
+      {online ? t('sensorDetails.online') : offline ? t('sensorDetails.offline') : t('sensorDetails.statusUnavailable')}
     </span>
   )
 }
 
 function DataCard({ label, value, mono = false }) {
+  const { t } = useTranslation()
   return (
     <div className="min-w-0 rounded-lg border border-slate-100 bg-white p-3">
       <p className="text-xs font-medium text-slate-500">{label}</p>
       <p className={`mt-1 break-words text-sm font-medium text-slate-900 ${mono ? 'font-mono' : ''}`}>
-        {displayValue(value)}
+        {displayValue(value, t('sensorDetails.notAvailable'))}
       </p>
     </div>
   )
@@ -81,8 +84,10 @@ function Section({ icon: Icon, title, subtitle, children, action }) {
 }
 
 function SensorReadings({ readings }) {
+  const { t } = useTranslation()
+
   if (!readings.length) {
-    return <EmptyState>No stored readings are available for this sensor yet.</EmptyState>
+    return <EmptyState>{t('sensorDetails.noReadings')}</EmptyState>
   }
 
   return (
@@ -90,13 +95,13 @@ function SensorReadings({ readings }) {
       <table className="w-full min-w-[820px] border-collapse text-left text-sm">
         <thead>
           <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-500">
-            <th className="pb-3 pr-4 font-medium">Line</th>
-            <th className="pb-3 pr-4 font-medium">Recorded</th>
-            <th className="pb-3 pr-4 text-right font-medium">In</th>
-            <th className="pb-3 pr-4 text-right font-medium">Out</th>
-            <th className="pb-3 pr-4 text-right font-medium">Male in/out</th>
-            <th className="pb-3 text-right font-medium">Female in/out</th>
-            <th className="pb-3 pl-4 text-right font-medium">Group in/out</th>
+            <th className="pb-3 pr-4 font-medium">{t('sensorDetails.line')}</th>
+            <th className="pb-3 pr-4 font-medium">{t('sensorDetails.recorded')}</th>
+            <th className="pb-3 pr-4 text-right font-medium">{t('sensorDetails.in')}</th>
+            <th className="pb-3 pr-4 text-right font-medium">{t('sensorDetails.out')}</th>
+            <th className="pb-3 pr-4 text-right font-medium">{t('sensorDetails.maleInOut')}</th>
+            <th className="pb-3 text-right font-medium">{t('sensorDetails.femaleInOut')}</th>
+            <th className="pb-3 pl-4 text-right font-medium">{t('sensorDetails.groupInOut')}</th>
           </tr>
         </thead>
         <tbody>
@@ -105,17 +110,19 @@ function SensorReadings({ readings }) {
               <td className="py-3 pr-4 font-medium text-slate-900">
                 {reading.line_name || `Line ${reading.line_id}`}
               </td>
-              <td className="py-3 pr-4 whitespace-nowrap text-slate-500">{formatDate(reading.recorded_at)}</td>
-              <td className="py-3 pr-4 text-right tabular-nums text-slate-700">{displayValue(reading.individuals_in)}</td>
-              <td className="py-3 pr-4 text-right tabular-nums text-slate-700">{displayValue(reading.individuals_out)}</td>
+              <td className="py-3 pr-4 whitespace-nowrap text-slate-500">
+                {formatDate(reading.recorded_at) ?? t('sensorDetails.notAvailable')}
+              </td>
+              <td className="py-3 pr-4 text-right tabular-nums text-slate-700">{displayValue(reading.individuals_in, t('sensorDetails.notAvailable'))}</td>
+              <td className="py-3 pr-4 text-right tabular-nums text-slate-700">{displayValue(reading.individuals_out, t('sensorDetails.notAvailable'))}</td>
               <td className="py-3 pr-4 text-right tabular-nums text-slate-700">
-                {displayValue(reading.male_in)} / {displayValue(reading.male_out)}
+                {displayValue(reading.male_in, t('sensorDetails.notAvailable'))} / {displayValue(reading.male_out, t('sensorDetails.notAvailable'))}
               </td>
               <td className="py-3 text-right tabular-nums text-slate-700">
-                {displayValue(reading.female_in)} / {displayValue(reading.female_out)}
+                {displayValue(reading.female_in, t('sensorDetails.notAvailable'))} / {displayValue(reading.female_out, t('sensorDetails.notAvailable'))}
               </td>
               <td className="py-3 pl-4 text-right tabular-nums text-slate-700">
-                {displayValue(reading.group_in)} / {displayValue(reading.group_out)}
+                {displayValue(reading.group_in, t('sensorDetails.notAvailable'))} / {displayValue(reading.group_out, t('sensorDetails.notAvailable'))}
               </td>
             </tr>
           ))}
@@ -133,6 +140,7 @@ export default function SensorDetails({
   onBack,
   onRefresh,
 }) {
+  const { t } = useTranslation()
   const currentSensor = details || sensor
   const deviceInfo = details?.device_info
   const configuration = details?.configuration
@@ -142,6 +150,8 @@ export default function SensorDetails({
       !['device_name', 'device_info_id', 'updated_at'].includes(key) && value != null && value !== '')
     : []
 
+  const deviceUpdatedAt = deviceInfo?.updated_at ? formatDate(deviceInfo.updated_at) : null
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -150,7 +160,7 @@ export default function SensorDetails({
           onClick={onBack}
           className="inline-flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-slate-600 transition hover:bg-white hover:text-slate-900"
         >
-          <ArrowLeft size={16} /> All sensors
+          <ArrowLeft size={16} /> {t('sensorDetails.allSensors')}
         </button>
         <button
           type="button"
@@ -159,7 +169,7 @@ export default function SensorDetails({
           className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
         >
           <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-          {loading ? 'Refreshing...' : 'Refresh details'}
+          {loading ? t('sensorDetails.refreshing') : t('sensorDetails.refreshDetails')}
         </button>
       </div>
 
@@ -167,14 +177,14 @@ export default function SensorDetails({
         <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <span className="inline-flex items-center gap-2"><AlertCircle size={17} /> {error}</span>
           <button type="button" onClick={onRefresh} className="font-semibold underline underline-offset-2">
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       )}
 
       {!details && loading && (
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-sm text-slate-500">
-          Loading sensor details...
+          {t('sensorDetails.loadingDetails')}
         </div>
       )}
 
@@ -185,38 +195,38 @@ export default function SensorDetails({
               <div className="flex items-start gap-4">
                 <span className="rounded-xl bg-slate-100 p-3 text-slate-700"><Camera size={22} /></span>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Sensor details</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t('sensorDetails.sensorDetails')}</p>
                   <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">
                     {currentSensor.name || `Sensor ${currentSensor.id}`}
                   </h1>
                   <p className="mt-1 text-sm text-slate-500">
-                    Sensor ID <span className="font-mono text-slate-700">{currentSensor.id}</span>
+                    {t('sensorDetails.sensorId')} <span className="font-mono text-slate-700">{currentSensor.id}</span>
                     <span className="mx-2 text-slate-300">·</span>
-                    Assigned to store <span className="font-medium text-slate-700">{currentSensor.store_id ?? 'Not assigned'}</span>
+                    {t('sensorDetails.assignedToStore')} <span className="font-medium text-slate-700">{currentSensor.store_id ?? t('sensorDetails.notAvailable')}</span>
                   </p>
                 </div>
               </div>
               <StatusBadge status={currentSensor.status} />
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <DataCard label="Model" value={currentSensor.model} />
-              <DataCard label="Device ID" value={currentSensor.milesight_device_id} mono />
-              <DataCard label="Serial number" value={currentSensor.serial_number || deviceInfo?.device_sn} mono />
-              <DataCard label="Firmware" value={currentSensor.firmware_version || deviceInfo?.firmware_version} />
-              <DataCard label="IP address" value={currentSensor.ip_address || deviceInfo?.ip_address} mono />
-              <DataCard label="Last seen" value={formatDate(currentSensor.last_seen_at)} />
+              <DataCard label={t('sensorDetails.model')} value={currentSensor.model} />
+              <DataCard label={t('sensorDetails.deviceId')} value={currentSensor.milesight_device_id} mono />
+              <DataCard label={t('sensorDetails.serialNumber')} value={currentSensor.serial_number || deviceInfo?.device_sn} mono />
+              <DataCard label={t('sensorDetails.firmware')} value={currentSensor.firmware_version || deviceInfo?.firmware_version} />
+              <DataCard label={t('sensorDetails.ipAddress')} value={currentSensor.ip_address || deviceInfo?.ip_address} mono />
+              <DataCard label={t('sensorDetails.lastSeen')} value={formatDate(currentSensor.last_seen_at)} />
             </div>
           </section>
 
           <Section
             icon={Cpu}
-            title="Device information"
-            subtitle={deviceInfo?.updated_at ? `Updated ${formatDate(deviceInfo.updated_at)}` : 'Hardware details reported by the sensor'}
+            title={t('sensorDetails.deviceInformation')}
+            subtitle={deviceUpdatedAt ? t('sensorDetails.updatedAt', { date: deviceUpdatedAt }) : t('sensorDetails.deviceInfoSubtitle')}
           >
             {!deviceInfo ? (
-              <EmptyState>No device information has been reported yet. Details will appear here when the sensor is connected.</EmptyState>
+              <EmptyState>{t('sensorDetails.noDeviceInfo')}</EmptyState>
             ) : deviceFields.length === 0 ? (
-              <EmptyState>Device information is registered, but no metadata values are available yet.</EmptyState>
+              <EmptyState>{t('sensorDetails.noDeviceMetadata')}</EmptyState>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {deviceFields.map(([key, value]) => (
@@ -228,28 +238,28 @@ export default function SensorDetails({
 
           <Section
             icon={Cpu}
-            title="Configuration"
-            subtitle={configuration?.fetched_at ? `Saved configuration · fetched ${formatDate(configuration.fetched_at)}` : 'Saved sensor configuration'}
+            title={t('sensorDetails.configuration')}
+            subtitle={configuration?.fetched_at ? `${t('sensorDetails.configSubtitle')} · ${formatDate(configuration.fetched_at) ?? ''}` : t('sensorDetails.configSubtitle')}
           >
             {!configuration || configuration.values == null ? (
-              <EmptyState>No saved configuration is available for this sensor yet.</EmptyState>
+              <EmptyState>{t('sensorDetails.noConfiguration')}</EmptyState>
             ) : Object.keys(configuration.values).length === 0 ? (
-              <EmptyState>A configuration record exists, but it contains no settings.</EmptyState>
+              <EmptyState>{t('sensorDetails.emptyConfiguration')}</EmptyState>
             ) : (
               <pre className="max-h-[28rem] overflow-auto rounded-lg bg-slate-950 p-4 text-xs leading-6 text-slate-100">
                 {JSON.stringify(configuration.values, null, 2)}
               </pre>
             )}
-            <p className="mt-3 text-xs text-slate-400">Read-only view. Changes are not sent to the hardware.</p>
+            <p className="mt-3 text-xs text-slate-400">{t('sensorDetails.configReadOnly')}</p>
           </Section>
 
           <Section
             icon={Users}
-            title="Latest readings"
-            subtitle="Up to five most recent readings stored for this sensor"
+            title={t('sensorDetails.latestReadings')}
+            subtitle={t('sensorDetails.latestReadingsSubtitle')}
             action={readings.length > 0 && (
               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                {readings.length} {readings.length === 1 ? 'reading' : 'readings'}
+                {readings.length} {readings.length === 1 ? t('sensorDetails.reading') : t('sensorDetails.readings')}
               </span>
             )}
           >
@@ -258,14 +268,14 @@ export default function SensorDetails({
 
           <p className="flex items-center gap-2 px-1 text-xs text-slate-400">
             <Clock3 size={13} />
-            Device data and readings reflect records currently available in the backend.
+            {t('sensorDetails.deviceDataNote')}
           </p>
         </>
       )}
 
       {!details && !loading && !error && (
         <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
-          Sensor details are not available yet.
+          {t('sensorDetails.detailsUnavailable')}
         </div>
       )}
     </div>

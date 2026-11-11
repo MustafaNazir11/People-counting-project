@@ -268,17 +268,26 @@ export function AgeDistribution({ ageDist, loading }) {
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex flex-col justify-center gap-2 lg:min-w-[200px]">
-            {buckets.map((b) => (
-              <div key={b.key} className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: b.color }} aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate text-xs text-[#4d4d4d]">{b.label}</span>
-                <span className="tabular-nums text-xs font-medium text-[#171717]">{arNum(b.value)}</span>
-                <span className="w-10 text-right tabular-nums text-[11px] text-[#8f8f8f]">
-                  {total > 0 ? `${arNum(((b.value / total) * 100).toFixed(0))}%` : '—'}
-                </span>
-              </div>
-            ))}
+          <div className="flex w-[300px] flex-col justify-center">
+            {/* Column headers */}
+            <div className="mb-2 flex items-center gap-3 border-b border-[#ebebeb] pb-2">
+              <span className="h-2.5 w-2.5 shrink-0 opacity-0" aria-hidden="true" />
+              <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-[#8f8f8f]">{t('analytics.ageGroup')}</span>
+              <span className="w-12 text-right text-xs font-semibold uppercase tracking-wide text-[#8f8f8f]">{t('analytics.entries')}</span>
+              <span className="w-10 text-right text-xs font-semibold uppercase tracking-wide text-[#8f8f8f]">%</span>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              {buckets.map((b) => (
+                <div key={b.key} className="flex items-center gap-3">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: b.color }} aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate text-sm text-[#4d4d4d]">{b.label}</span>
+                  <span className="w-12 text-right tabular-nums text-sm font-medium text-[#171717]">{arNum(b.value)}</span>
+                  <span className="w-10 text-right tabular-nums text-xs text-[#8f8f8f]">
+                    {total > 0 ? `${arNum(((b.value / total) * 100).toFixed(0))}%` : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       ) : (

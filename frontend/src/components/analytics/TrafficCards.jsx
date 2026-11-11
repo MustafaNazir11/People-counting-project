@@ -65,15 +65,15 @@ export default function TrafficCards({ loading, totals, previousTotals, occupanc
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#007cf0] to-[#00dfd8]" />
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight text-[#171717]">{t('analytics.cardIn')}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-semibold tracking-tight text-[#171717]">{t('analytics.cardIn')}</h2>
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e8f9f0]">
+                  <ArrowDownRight size={15} color="#16a34a" strokeWidth={2.5} />
+                </span>
+              </div>
               <p className="mt-1 text-sm text-[#8f8f8f]">{t('analytics.totalEntries')}</p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e8f9f0]">
-                <ArrowDownRight size={15} color="#16a34a" strokeWidth={2.5} />
-              </span>
-              <TrendBadge value={growthIn} />
-            </div>
+            <TrendBadge value={growthIn} />
           </div>
           <p className="mt-4 text-5xl font-semibold leading-none tracking-[-1.8px] text-[#171717] tabular-nums">
             {shown(totals.totalIn)}
@@ -90,15 +90,15 @@ export default function TrafficCards({ loading, totals, previousTotals, occupanc
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#7928ca] to-[#ff0080]" />
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight text-[#171717]">{t('analytics.cardOut')}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-semibold tracking-tight text-[#171717]">{t('analytics.cardOut')}</h2>
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#f3e8ff]">
+                  <ArrowUpRight size={15} color="#7928ca" strokeWidth={2.5} />
+                </span>
+              </div>
               <p className="mt-1 text-sm text-[#8f8f8f]">{t('analytics.totalExits')}</p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#f3e8ff]">
-                <ArrowUpRight size={15} color="#7928ca" strokeWidth={2.5} />
-              </span>
-              <TrendBadge value={growthOut} />
-            </div>
+            <TrendBadge value={growthOut} />
           </div>
           <p className="mt-4 text-5xl font-semibold leading-none tracking-[-1.8px] text-[#171717] tabular-nums">
             {shown(totals.totalOut)}
